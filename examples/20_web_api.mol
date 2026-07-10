@@ -5,16 +5,17 @@ type Todo:
     id: int
     title: str
     done: bool
-  derive(Serialize, Deserialize)
+derive(Serialize, Deserialize)
+
+fn list_todos(req: Request) -> Response:
+    return json([Todo(1, "ship mol", false)])
+
+fn create_todo(req: Request) -> Response:
+    let t = req.body[Todo]?
+    return json(t)
 
 fn main():
     let app = web.App()
-
-    app.get("/todos", req => json([Todo(1, "ship mol", false)]))
-
-    app.post("/todos", req => {
-        let t = req.body[Todo]?
-        return json(t)
-    })
-
+    app.get("/todos", list_todos)
+    app.post("/todos", create_todo)
     app.listen(8080)

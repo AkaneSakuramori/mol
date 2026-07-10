@@ -27,7 +27,8 @@ const_decl     = "const", IDENT, [ ":", type ], "=", expr, NEWLINE ;
 function_decl  = [ "pub" ], "fn", IDENT, [ generic_params ],
                  "(", [ params ], ")", [ "->", type ], block ;
 params         = param, { ",", param } ;
-param          = IDENT, ":", type, [ "=", expr ] ;
+param          = "self"
+               | IDENT, ":", type, [ "=", expr ] ;
 
 generic_params = "[", generic_param, { ",", generic_param }, "]" ;
 generic_param  = IDENT, [ ":", type_bound ] ;

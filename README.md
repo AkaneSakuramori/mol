@@ -1,30 +1,29 @@
 # Mol
 
-A compiled, statically-typed programming language with the readability of Python and
-the performance of a native language. Mol aims to be a tier above interpreted languages:
-fast native code, no GIL, safe by default, and easy to write.
+Mol is a compiled, statically-typed programming language with type inference,
+first-class concurrency, and a clean, readable syntax. It compiles to native code,
+runs without a global interpreter lock, and treats errors as values.
 
-> Status: **Step 1 of 10 — Spec & Grammar.** Early development.
+> Status: **Step 3 of 10 — Parser.** Early development.
 
-## Why Mol
+## Features
 
-| Concern        | Python            | Mol (target)                          |
-|----------------|-------------------|----------------------------------------|
-| Speed          | Interpreted, slow | Native AOT via LLVM, C-class           |
-| Concurrency    | GIL-bound         | Green threads, no GIL, true parallelism|
-| Typing         | Optional hints    | Static + inferred, no null             |
-| Errors         | Exceptions        | `Result` / `Option` values             |
-| Deployment     | Interpreter + env | Single static binary                   |
-| Feel           | Terse, readable   | Terse, readable                        |
+- Static typing with full local type inference — annotate only at boundaries.
+- Immutable bindings by default (`let`), explicit mutability (`var`).
+- Algebraic data types (`enum`) with exhaustive pattern matching.
+- No null: `Option[T]` and `Result[T, E]` with the `?` propagation operator.
+- Traits for polymorphism and generics with bounds.
+- First-class functions, closures, and string interpolation.
+- Compiles to a single native binary with fast startup.
 
-## A taste
+## Example
 
 ```mol
 type User:
     id: int
     name: str
     email: str?
-  derive(Display)
+derive(Display)
 
 fn greet(u: User) -> str:
     match u.email:
@@ -36,43 +35,48 @@ fn main():
     print(greet(u))
 ```
 
-## Language highlights
+## Getting started
 
-- Python-style indentation, no semicolons or braces for blocks.
-- Immutable by default (`let`), explicit mutability (`var`).
-- Full local type inference — annotate only at boundaries.
-- No null: `Option[T]` and `Result[T, E]` with the `?` propagation operator.
-- Algebraic data types (`enum`) with exhaustive `match`.
-- Traits for polymorphism, generics with bounds.
-- First-class functions and closures, string interpolation.
+Mol is under active development. The toolchain currently builds from source and runs
+on Python 3.10+.
+
+```sh
+# tokenize a source file
+python3 src/mol.py lex examples/01_hello.mol
+
+# parse a source file to an AST
+python3 src/mol.py parse examples/01_hello.mol
+
+# run the test suite
+python3 tests/test_lexer.py
+python3 tests/test_parser.py
+```
 
 ## Repository layout
 
 ```
 spec/        language specification and formal grammar
-examples/    example .mol programs (the compiler's test corpus)
-src/         compiler implementation (added from Step 2 onward)
+examples/    example .mol programs
+src/         compiler implementation
 tests/       compiler tests
 ```
 
-- [`spec/SPEC.md`](spec/SPEC.md) — the v0 language specification.
-- [`spec/grammar.ebnf`](spec/grammar.ebnf) — the formal EBNF grammar.
-- [`examples/`](examples/) — 20 programs that define what Mol looks like and must compile.
+- [`spec/SPEC.md`](spec/SPEC.md) — language specification.
+- [`spec/grammar.ebnf`](spec/grammar.ebnf) — formal EBNF grammar.
+- [`examples/`](examples/) — example programs.
 
 ## Roadmap
 
-Mol is built in 10 shippable steps:
-
-1. **Spec & Grammar** — language definition, EBNF, example programs. ← *current*
-2. **Lexer** — source to tokens.
-3. **Parser** — tokens to AST.
-4. **Semantic analysis + type system** — inference and checking.
-5. **Tree-walking interpreter** — the language first runs.
-6. **Bytecode compiler + VM** — faster execution, REPL.
-7. **Native backend (LLVM)** — single static binary, C-class speed.
-8. **Runtime** — green-thread scheduler, structured concurrency, memory model.
-9. **Stdlib + tooling + FFI** — http/web/json, `mol` CLI, LSP, package manager.
-10. **Self-host + optimize + 1.0** — Mol compiles Mol, JIT tier, benchmarks.
+1. Spec & grammar — language definition, EBNF, example programs. ✅
+2. Lexer — source to tokens. ✅
+3. Parser — tokens to AST. ✅
+4. Semantic analysis and type system — inference and checking.
+5. Tree-walking interpreter.
+6. Bytecode compiler and virtual machine, REPL.
+7. Native backend via LLVM — single static binary.
+8. Runtime — green-thread scheduler, structured concurrency, memory model.
+9. Standard library, tooling (`mol` CLI, LSP, formatter, package manager), and FFI.
+10. Self-hosting compiler, JIT tier, and 1.0 release.
 
 ## License
 

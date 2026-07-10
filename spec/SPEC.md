@@ -4,15 +4,15 @@ Status: frozen for Step 1. This is the contract the compiler is built against.
 
 ## 1. Overview
 
-Mol is a compiled, statically-typed language with type inference and a Python-like
-syntax. It targets native code (via a native backend) for C-class performance, and
-ships an interpreter/VM for development and scripting. This document defines the v0
-surface language: lexical structure, types, declarations, statements, and semantics.
+Mol is a compiled, statically-typed language with type inference and a layout-based,
+readable syntax. It targets native code for high performance and ships an interpreter/VM
+for development and scripting. This document defines the v0 surface language: lexical
+structure, types, declarations, statements, and semantics.
 
 ## 2. Lexical Structure
 
 - Source is UTF-8. Files use the `.mol` extension.
-- Layout is significant. Indentation opens/closes blocks (like Python). The lexer emits
+- Layout is significant. Indentation opens and closes blocks. The lexer emits
   `INDENT`, `DEDENT`, and `NEWLINE` tokens. Indentation is spaces; a block's indent must
   be consistent.
 - Line comments start with `#` and run to end of line.
@@ -57,6 +57,8 @@ and or not true false none
 - `enum Name:` — variants, each optionally carrying a tuple of types.
 - `trait Name:` — set of method signatures.
 - `impl Type:` or `impl Trait for Type:` — method implementations.
+- In trait and `impl` methods, a leading `self` parameter is the receiver and needs no
+  type annotation; its type is the implementing type.
 
 ## 5. Bindings & Mutability
 
