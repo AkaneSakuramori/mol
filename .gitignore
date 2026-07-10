@@ -7,5 +7,7 @@ dist/
 build/
 .DS_Store
 *.molc
+*.ll
+*.o
 .claude/
 LANGUAGE_DESIGN_PLAN.md

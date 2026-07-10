@@ -106,9 +106,51 @@ def cmd_runvm(path):
     return 0
 
 
+def cmd_build(path, output=None):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    from native import build_executable
+    from codegen import CodegenError
+    if output is None:
+        output = os.path.splitext(os.path.basename(path))[0]
+    try:
+        build_executable(tree, output, keep_ir=True)
+    except CodegenError as e:
+        print(f"error: {path}: native backend: {e}", file=sys.stderr)
+        return 1
+    except RuntimeError as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    print(f"built {output}")
+    return 0
+
+
+def cmd_emit_ir(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    from native import emit_ir
+    from codegen import CodegenError
+    try:
+        print(emit_ir(tree))
+    except CodegenError as e:
+        print(f"error: {path}: native backend: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv):
     if len(argv) < 2:
-        print("usage: mol <lex|parse|check|run|runvm|repl> <file.mol>", file=sys.stderr)
+        print("usage: mol <lex|parse|check|run|runvm|build|emit-ir|repl> <file.mol>", file=sys.stderr)
         return 2
     command = argv[1]
     if command == "repl":
@@ -127,6 +169,11 @@ def main(argv):
         return cmd_run(argv[2])
     if command == "runvm":
         return cmd_runvm(argv[2])
+    if command == "build":
+        output = argv[4] if len(argv) > 4 and argv[3] == "-o" else None
+        return cmd_build(argv[2], output)
+    if command == "emit-ir":
+        return cmd_emit_ir(argv[2])
     print(f"unknown command: {command}", file=sys.stderr)
     return 2
 

@@ -10,6 +10,7 @@ SUITES = [
     "test_checker.py",
     "test_interpreter.py",
     "test_vm.py",
+    "test_native.py",
 ]
 
 

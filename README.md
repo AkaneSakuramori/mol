@@ -4,7 +4,7 @@ Mol is a compiled, statically-typed programming language with type inference,
 first-class concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **Step 6 of 10 — Bytecode VM & REPL.** Early development.
+> Status: **Step 7 of 10 — Native Backend (LLVM).** Early development.
 
 ## Features
 
@@ -14,7 +14,8 @@ runs without a global interpreter lock, and treats errors as values.
 - Errors as values with the `?` propagation operator.
 - Traits for polymorphism and generics with bounds.
 - First-class functions, closures, and string interpolation.
-- Runs today via a tree-walking interpreter and a bytecode virtual machine.
+- Runs via a tree-walking interpreter and a bytecode virtual machine.
+- Compiles numeric and control-flow programs to native executables via LLVM.
 
 ## Example
 
@@ -56,6 +57,13 @@ python3 src/mol.py run examples/08_enums_match.mol
 # run with the bytecode virtual machine
 python3 src/mol.py runvm examples/08_enums_match.mol
 
+# compile to a native executable via LLVM, then run it
+python3 src/mol.py build examples/native/fib.mol -o fib
+./fib
+
+# print the generated LLVM IR
+python3 src/mol.py emit-ir examples/native/fib.mol
+
 # start the interactive REPL
 python3 src/mol.py repl
 
@@ -63,13 +71,25 @@ python3 src/mol.py repl
 python3 tests/run_all.py
 ```
 
+The native backend requires `llvmlite` and a C toolchain (`gcc`):
+
+```sh
+pip install llvmlite
+```
+
+It currently compiles the numeric and control-flow core (`int`, `float`, `bool`,
+functions, recursion, `if`/`while`/`for`, and `print`) to a standalone binary.
+Heap types and closures run on the interpreter and VM today and are added to the
+native backend alongside the runtime and memory model (Step 8).
+
 ## Toolchain
 
 The compiler is organized as a classic pipeline:
 
 ```
 source → lexer → parser → checker → ┬→ interpreter (tree-walking)
-                                     └→ compiler → bytecode → VM
+                                     ├→ compiler → bytecode → VM
+                                     └→ codegen → LLVM IR → native binary
 ```
 
 - `src/lexer.py` — source to tokens, with layout and string interpolation.
@@ -77,16 +97,18 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 - `src/checker.py` — name resolution and type inference.
 - `src/interpreter.py` — tree-walking evaluator.
 - `src/compiler.py`, `src/bytecode.py`, `src/vm.py` — bytecode compiler and stack VM.
+- `src/codegen.py`, `src/native.py` — LLVM IR generation and native compilation.
 - `src/repl.py` — interactive shell.
 - `src/stdlib.py`, `src/builtins_mod.py` — built-in functions and modules (`fs`, `json`, `math`).
 
 ## Repository layout
 
 ```
-spec/        language specification and formal grammar
-examples/    example .mol programs
-src/         compiler implementation
-tests/       compiler tests
+spec/            language specification and formal grammar
+examples/        example .mol programs
+examples/native/ programs the native backend compiles to binaries
+src/             compiler implementation
+tests/           compiler tests
 ```
 
 - [`spec/SPEC.md`](spec/SPEC.md) — language specification.
@@ -101,7 +123,7 @@ tests/       compiler tests
 4. Semantic analysis and type system — inference and checking. ✅
 5. Tree-walking interpreter. ✅
 6. Bytecode compiler and virtual machine, REPL. ✅
-7. Native backend via LLVM — single static binary.
+7. Native backend via LLVM — single static binary. ✅
 8. Runtime — green-thread scheduler, structured concurrency, memory model.
 9. Standard library, tooling (`mol` CLI, LSP, formatter, package manager), and FFI.
 10. Self-hosting compiler, JIT tier, and 1.0 release.
