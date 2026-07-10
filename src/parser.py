@@ -385,6 +385,13 @@ class Parser:
         return body
 
     def parse_statement(self):
+        line = self.current.line
+        node = self._parse_statement_inner()
+        if node is not None and getattr(node, "line", 0) == 0:
+            node.line = line
+        return node
+
+    def _parse_statement_inner(self):
         if self.at_keyword("let"):
             return self.parse_let()
         if self.at_keyword("var"):
@@ -594,7 +601,7 @@ class Parser:
             params = [ast.Param(name=self.advance().value, type=None, default=None)]
         else:
             self.expect(T.LPAREN)
-            params = self.parse_params()
+            params = self.parse_lambda_params()
             self.expect(T.RPAREN)
         self.expect(T.FAT_ARROW)
         if self.at(T.LBRACE):
@@ -602,6 +609,24 @@ class Parser:
         else:
             body = self.parse_expr()
         return ast.Lambda(params=params, body=body)
+
+    def parse_lambda_params(self):
+        params = []
+        if self.at(T.RPAREN):
+            return params
+        params.append(self.parse_lambda_param())
+        while self.at(T.COMMA):
+            self.advance()
+            params.append(self.parse_lambda_param())
+        return params
+
+    def parse_lambda_param(self):
+        name = self.expect(T.IDENT).value
+        type = None
+        if self.at(T.COLON):
+            self.advance()
+            type = self.parse_type()
+        return ast.Param(name=name, type=type, default=None)
 
     def parse_brace_block(self):
         self.expect(T.LBRACE)
@@ -723,6 +748,14 @@ class Parser:
         return ast.Argument(name=None, value=self.parse_expr())
 
     def parse_primary(self):
+        tok = self.current
+        line = tok.line
+        node = self._parse_primary_inner()
+        if getattr(node, "line", 0) == 0:
+            node.line = line
+        return node
+
+    def _parse_primary_inner(self):
         tok = self.current
         if tok.type == T.INT:
             self.advance()

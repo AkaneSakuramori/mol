@@ -109,7 +109,9 @@ pattern        = "_"
 (* ---------- expressions (precedence climbing) ---------- *)
 
 expr           = lambda | ternary ;
-lambda         = ( IDENT | "(", [ params ], ")" ), "=>", ( expr | block ) ;
+lambda         = ( IDENT | "(", [ lambda_params ], ")" ), "=>", ( expr | block ) ;
+lambda_params  = lambda_param, { ",", lambda_param } ;
+lambda_param   = IDENT, [ ":", type ] ;
 ternary        = or_expr, [ "if", or_expr, "else", expr ] ;
 
 or_expr        = and_expr, { "or", and_expr } ;

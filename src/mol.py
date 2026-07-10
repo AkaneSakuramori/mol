@@ -5,6 +5,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lexer import tokenize, LexError, TokenType
 from parser import parse, ParseError
+from interpreter import Interpreter
+from checker import check as type_check
+from compiler import compile_module
+from vm import VM
+from builtins_mod import MolPanic
 import ast_nodes as ast
 
 
@@ -52,15 +57,76 @@ def cmd_parse(path):
     return 0
 
 
+def cmd_run(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    try:
+        Interpreter().run(tree)
+    except MolPanic as e:
+        print(f"panic: {e.message}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_check(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    errors = type_check(tree)
+    if errors:
+        for e in errors:
+            print(f"{path}:{e}", file=sys.stderr)
+        return 1
+    print(f"{path}: ok")
+    return 0
+
+
+def cmd_runvm(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    try:
+        VM(compile_module(tree)).run()
+    except MolPanic as e:
+        print(f"panic: {e.message}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv):
-    if len(argv) < 3:
-        print("usage: mol <lex|parse> <file.mol>", file=sys.stderr)
+    if len(argv) < 2:
+        print("usage: mol <lex|parse|check|run|runvm|repl> <file.mol>", file=sys.stderr)
         return 2
     command = argv[1]
+    if command == "repl":
+        from repl import repl
+        return repl()
+    if len(argv) < 3:
+        print(f"usage: mol {command} <file.mol>", file=sys.stderr)
+        return 2
     if command == "lex":
         return cmd_lex(argv[2])
     if command == "parse":
         return cmd_parse(argv[2])
+    if command == "check":
+        return cmd_check(argv[2])
+    if command == "run":
+        return cmd_run(argv[2])
+    if command == "runvm":
+        return cmd_runvm(argv[2])
     print(f"unknown command: {command}", file=sys.stderr)
     return 2
 
