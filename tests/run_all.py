@@ -14,6 +14,8 @@ SUITES = [
     "test_runtime.py",
     "test_stdlib.py",
     "test_jit.py",
+    "test_errors.py",
+    "test_fuzz.py",
 ]
 
 
