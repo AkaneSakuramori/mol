@@ -49,6 +49,14 @@ def _bool(args):
     return bool(args[0])
 
 
+def _is_list(args):
+    return isinstance(args[0], list)
+
+
+def _is_str(args):
+    return isinstance(args[0], str)
+
+
 def _abs(args):
     return abs(args[0])
 
@@ -90,6 +98,8 @@ BUILTINS = {
     "float": Builtin("float", _float),
     "str": Builtin("str", _str),
     "bool": Builtin("bool", _bool),
+    "is_list": Builtin("is_list", _is_list),
+    "is_str": Builtin("is_str", _is_str),
     "abs": Builtin("abs", _abs),
     "min": Builtin("min", _min),
     "max": Builtin("max", _max),

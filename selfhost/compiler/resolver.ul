@@ -1,0 +1,340 @@
+import fs
+
+fn read_sexpr(text: str) -> dyn:
+    let chars = text.chars()
+    let state = [chars, chars.len(), 0]
+    return parse_node(state)
+
+fn cur(state: dyn) -> str:
+    if state[2] >= state[1]:
+        return ""
+    return state[0][state[2]]
+
+fn parse_node(state: dyn) -> dyn:
+    skip_ws(state)
+    if cur(state) == "(":
+        state[2] = state[2] + 1
+        var items = []
+        while true:
+            skip_ws(state)
+            if cur(state) == ")":
+                state[2] = state[2] + 1
+                return items
+            if cur(state) == "":
+                return items
+            items.push(parse_node(state))
+        return items
+    return parse_atom(state)
+
+fn parse_atom(state: dyn) -> str:
+    var s = ""
+    while state[2] < state[1]:
+        let c = state[0][state[2]]
+        if c == " " or c == "(" or c == ")":
+            break
+        s += c
+        state[2] = state[2] + 1
+    return s
+
+fn skip_ws(state: dyn):
+    while state[2] < state[1] and state[0][state[2]] == " ":
+        state[2] = state[2] + 1
+
+fn is_atom(node: dyn) -> bool:
+    return not is_list(node)
+
+fn tag(node: dyn) -> str:
+    if is_list(node):
+        if node.len() == 0:
+            return ""
+        return node[0]
+    return node
+
+type Resolver:
+    globals: dyn
+    errors: dyn
+
+fn builtin_names() -> [str]:
+    return ["print", "len", "range", "panic", "int", "float", "str", "bool",
+            "abs", "min", "max", "sum", "Some", "None", "Ok", "Err",
+            "spawn", "sleep", "channel", "nursery", "assert", "assert_eq",
+            "gc_collect", "gc_alloc_count", "gc_live_count", "gc_enable", "gc_disable",
+            "is_list", "is_str"]
+
+fn contains(xs: dyn, name: str) -> bool:
+    for x in xs:
+        if x == name:
+            return true
+    return false
+
+fn collect_globals(module: dyn) -> dyn:
+    var names = builtin_names()
+    for decl in module:
+        let t = tag(decl)
+        if t == "fn":
+            names.push(decl[2])
+        elif t == "type":
+            names.push(decl[2])
+        elif t == "enum":
+            collect_enum(decl, names)
+        elif t == "const":
+            names.push(decl[1])
+        elif t == "extern":
+            names.push(decl[1])
+        elif t == "import":
+            collect_import(decl, names)
+    return names
+
+fn collect_enum(decl: dyn, names: dyn):
+    let variants = decl[4]
+    for v in variants:
+        if is_list(v):
+            names.push(v[1])
+
+fn collect_import(decl: dyn, names: dyn):
+    let alias = decl[2]
+    if alias != "_":
+        names.push(alias)
+    let namelist = decl[3]
+    if is_list(namelist):
+        var i = 1
+        while i < namelist.len():
+            names.push(namelist[i])
+            i = i + 1
+    if not is_list(namelist) and alias == "_":
+        let path = decl[1]
+        if is_list(path):
+            names.push(path[path.len() - 1])
+
+fn resolve_module(module: dyn) -> dyn:
+    let r = Resolver(collect_globals(module), [])
+    for decl in module:
+        let t = tag(decl)
+        if t == "fn":
+            resolve_function(r, decl, r.globals)
+        elif t == "impl":
+            resolve_impl(r, decl)
+        elif t == "const":
+            resolve_expr(r, decl[3], r.globals)
+    return r.errors
+
+fn resolve_impl(r: Resolver, decl: dyn):
+    let methods = decl[4]
+    for m in methods:
+        if is_list(m) and tag(m) == "fn":
+            resolve_function(r, m, r.globals)
+
+fn resolve_function(r: Resolver, decl: dyn, outer: dyn):
+    var scope = copy_scope(outer)
+    let params = decl[4]
+    if is_list(params):
+        var i = 1
+        while i < params.len():
+            let p = params[i]
+            if is_list(p):
+                scope.push(p[1])
+            i = i + 1
+    let body = decl[6]
+    resolve_block(r, body, scope)
+
+fn copy_scope(s: dyn) -> dyn:
+    var out = []
+    for x in s:
+        out.push(x)
+    return out
+
+fn resolve_block(r: Resolver, block: dyn, outer: dyn):
+    var scope = copy_scope(outer)
+    if not is_list(block):
+        return
+    var i = 1
+    while i < block.len():
+        resolve_stmt(r, block[i], scope)
+        i = i + 1
+
+fn resolve_stmt(r: Resolver, node: dyn, scope: dyn):
+    let t = tag(node)
+    if t == "let":
+        resolve_expr(r, node[3], scope)
+        bind_pattern(node[1], scope)
+    elif t == "var":
+        resolve_expr(r, node[3], scope)
+        scope.push(node[1])
+    elif t == "asn":
+        resolve_expr(r, node[3], scope)
+        resolve_expr(r, node[2], scope)
+    elif t == "ret":
+        if node.len() > 1:
+            resolve_expr(r, node[1], scope)
+    elif t == "expr":
+        resolve_expr(r, node[1], scope)
+    elif t == "defer":
+        resolve_expr(r, node[1], scope)
+    elif t == "if":
+        resolve_if(r, node, scope)
+    elif t == "while":
+        resolve_expr(r, node[1], scope)
+        resolve_block(r, node[2], scope)
+    elif t == "for":
+        resolve_for(r, node, scope)
+    elif t == "with":
+        resolve_with(r, node, scope)
+    elif t == "match":
+        resolve_match(r, node, scope)
+
+fn resolve_if(r: Resolver, node: dyn, scope: dyn):
+    resolve_expr(r, node[1], scope)
+    resolve_block(r, node[2], scope)
+    let elifs = node[3]
+    if is_list(elifs):
+        var i = 1
+        while i < elifs.len():
+            let e = elifs[i]
+            resolve_expr(r, e[1], scope)
+            resolve_block(r, e[2], scope)
+            i = i + 1
+    let orelse = node[4]
+    if is_list(orelse):
+        resolve_block(r, orelse, scope)
+
+fn resolve_for(r: Resolver, node: dyn, scope: dyn):
+    resolve_expr(r, node[2], scope)
+    var inner = copy_scope(scope)
+    bind_pattern(node[1], inner)
+    resolve_block(r, node[3], inner)
+
+fn resolve_with(r: Resolver, node: dyn, scope: dyn):
+    resolve_expr(r, node[1], scope)
+    var inner = copy_scope(scope)
+    if node[2] != "_":
+        inner.push(node[2])
+    resolve_block(r, node[3], inner)
+
+fn resolve_match(r: Resolver, node: dyn, scope: dyn):
+    resolve_expr(r, node[1], scope)
+    var i = 2
+    while i < node.len():
+        let arm = node[i]
+        var inner = copy_scope(scope)
+        bind_pattern(arm[1], inner)
+        if arm[2] != "_":
+            resolve_expr(r, arm[2], inner)
+        let body = arm[3]
+        if is_list(body) and tag(body) == "block":
+            resolve_block(r, body, inner)
+        else:
+            resolve_expr(r, body, inner)
+        i = i + 1
+
+fn bind_pattern(pat: dyn, scope: dyn):
+    if is_atom(pat):
+        if pat != "_":
+            scope.push(pat)
+        return
+    let t = tag(pat)
+    if t == "vp":
+        var i = 2
+        while i < pat.len():
+            bind_pattern(pat[i], scope)
+            i = i + 1
+    elif t == "tp":
+        var i = 1
+        while i < pat.len():
+            bind_pattern(pat[i], scope)
+            i = i + 1
+
+fn is_number(s: str) -> bool:
+    if s.len() == 0:
+        return false
+    let cs = s.chars()
+    for c in cs:
+        if not (c >= "0" and c <= "9"):
+            return false
+    return true
+
+fn is_literal_atom(s: str) -> bool:
+    return s == "true" or s == "false" or s == "none" or s == "_" or is_number(s)
+
+fn resolve_expr(r: Resolver, node: dyn, scope: dyn):
+    if is_atom(node):
+        if is_literal_atom(node):
+            return
+        if not contains(scope, node):
+            r.errors.push(node)
+        return
+    let t = tag(node)
+    if t == "cll":
+        resolve_expr(r, node[1], scope)
+        var i = 2
+        while i < node.len():
+            resolve_arg(r, node[i], scope)
+            i = i + 1
+    elif t == "idx":
+        resolve_expr(r, node[1], scope)
+        resolve_expr(r, node[2], scope)
+    elif t == "att":
+        resolve_expr(r, node[1], scope)
+    elif t == "try":
+        resolve_expr(r, node[1], scope)
+    elif t == "neg" or t == "not":
+        resolve_expr(r, node[1], scope)
+    elif t == "ternary":
+        resolve_expr(r, node[1], scope)
+        resolve_expr(r, node[2], scope)
+        resolve_expr(r, node[3], scope)
+    elif t == "list" or t == "tuple":
+        var i = 1
+        while i < node.len():
+            resolve_expr(r, node[i], scope)
+            i = i + 1
+    elif t == "dict":
+        var i = 1
+        while i < node.len():
+            let pair = node[i]
+            resolve_expr(r, pair[1], scope)
+            resolve_expr(r, pair[2], scope)
+            i = i + 1
+    elif t == "lam":
+        resolve_lambda(r, node, scope)
+    elif t == "str" or t == "flt":
+        return
+    else:
+        resolve_expr(r, node[1], scope)
+        resolve_expr(r, node[2], scope)
+
+fn resolve_arg(r: Resolver, node: dyn, scope: dyn):
+    if is_list(node) and tag(node) == "named":
+        resolve_expr(r, node[2], scope)
+    else:
+        resolve_expr(r, node, scope)
+
+fn resolve_lambda(r: Resolver, node: dyn, scope: dyn):
+    var inner = copy_scope(scope)
+    let params = node[1]
+    if is_list(params):
+        var i = 1
+        while i < params.len():
+            let p = params[i]
+            if is_list(p):
+                inner.push(p[1])
+            i = i + 1
+    let body = node[2]
+    if is_list(body) and tag(body) == "block":
+        resolve_block(r, body, inner)
+    else:
+        resolve_expr(r, body, inner)
+
+fn main():
+    match fs.read("tree.sexpr"):
+        Ok(text) => run_resolver(text)
+        Err(e) => print("error: ${e}")
+
+fn run_resolver(text: str):
+    var module = []
+    let lines = text.split("\n")
+    for line in lines:
+        if line.trim() != "":
+            module.push(read_sexpr(line))
+    let errors = resolve_module(module)
+    for name in errors:
+        print("undefined name '${name}'")

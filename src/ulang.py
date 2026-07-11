@@ -12,7 +12,7 @@ from vm import VM
 from builtins_mod import UlangPanic
 import ast_nodes as ast
 
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 
 
 def _optimize(tree):

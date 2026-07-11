@@ -166,6 +166,10 @@ class Checker:
             "gc_collect": FnT([], INT),
             "gc_alloc_count": FnT([], INT),
             "gc_live_count": FnT([], INT),
+            "is_list": FnT([DYN], BOOL),
+            "is_str": FnT([DYN], BOOL),
+            "gc_enable": FnT([], UNIT),
+            "gc_disable": FnT([], UNIT),
         }
 
     def check(self, module):

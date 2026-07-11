@@ -11,12 +11,13 @@ Files are named by compiler responsibility, not by development milestone:
 
 ```
 compiler/
-  lexer.ul     source text  -> token stream (with significant-indentation layout)
-  parser.ul    token stream -> syntax tree
+  lexer.ul       source text  -> token stream (with significant-indentation layout)
+  parser.ul      token stream -> syntax tree
+  resolver.ul    syntax tree  -> name-resolution diagnostics (scopes, undefined names)
 ```
 
-Later stages (semantic analysis, then optimization and code generation) are added here as
-they are completed and validated.
+Later stages (the rest of semantic analysis, then optimization and code generation) are
+added here as they are completed and validated.
 
 ## Status
 
@@ -25,16 +26,22 @@ they are completed and validated.
   to the reference lexer and parser across all example programs and a stress corpus
   (`tests/test_selfhost_lexer.py`, `tests/test_selfhost_parser.py`).
 - **Stage 2 — Semantic analysis: in progress.**
+  - Name resolution (`resolver.ul`): symbol and scope management, and undefined-name
+    diagnostics, verified identical to the reference across scope scenarios and all
+    example programs (`tests/test_selfhost_resolver.py`).
 - **Stage 3 — Optimization and code generation: not started.**
 
 ## Running
 
-Each component reads `input.ul` from the current directory:
+Each component reads its input from the current directory:
 
 ```sh
 cp path/to/program.ul input.ul
 ulang run selfhost/compiler/lexer.ul     # print the token stream
 ulang run selfhost/compiler/parser.ul    # print the syntax tree as S-expressions
+
+ulang run selfhost/compiler/parser.ul > tree.sexpr
+ulang run selfhost/compiler/resolver.ul  # print name-resolution diagnostics
 ```
 
 ## Validation approach

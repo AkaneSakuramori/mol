@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.2
+
+### Changed
+- Reorganized the self-hosted compiler into a clean, responsibility-based architecture
+  under `selfhost/compiler/` with production names (`lexer.ul`, `parser.ul`). Removed
+  obsolete milestone/demo files (`tokenize.ul`, the early `lexer.ul`, `expr_parser.ul`)
+  and renamed their tests accordingly. Added `selfhost/compiler/README.md`.
+
+### Added
+- **Self-hosting Stage 2 begins — name resolution** (`selfhost/compiler/resolver.ul`).
+  It consumes the parser's syntax tree and performs symbol and scope management and
+  undefined-name detection, with the same scope rules as the reference (function
+  parameters, `let`/`var`, `for` and `match` bindings, `with` aliases, lambda parameters,
+  block scoping, and global declarations). Validated identical to the reference across 20
+  scope scenarios and all 23 example programs (`tests/test_selfhost_resolver.py`).
+- Built-in functions `is_list` and `is_str` — a minimal, genuinely required addition for
+  the resolver to walk the syntax tree (distinguishing compound nodes from atoms).
+
 ## 1.8.1
 
 ### Added

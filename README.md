@@ -6,7 +6,7 @@ Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **1.8.1** — self-hosting Stage 1 complete (full parser), cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
+> Status: **1.8.2** — self-hosting Stage 2 in progress (name resolution), Stage 1 complete, cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
 
 ## Features
 
@@ -123,6 +123,9 @@ time; each stage is validated for identical behavior against the Python referenc
     parser** across all example programs plus a stress corpus, and it terminates cleanly
     on malformed input.
 - **Stage 2 — Semantic analysis: in progress.**
+  - `selfhost/compiler/resolver.ul` — name resolution (symbol and scope management,
+    undefined-name diagnostics), verified identical to the reference across scope
+    scenarios and all example programs.
 - **Stage 3 — Optimization and code generation: not started.**
 
 ```sh
