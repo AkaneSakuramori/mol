@@ -15,10 +15,11 @@ compiler/
   parser.ul      token stream -> syntax tree
   checker.ul     syntax tree  -> semantic diagnostics (name resolution + type checking)
   exports.ul     syntax tree  -> a module's public API (visibility / package exports)
+  consteval.ul   syntax tree  -> compile-time values of constant expressions
 ```
 
-Later stages (the rest of semantic analysis, then optimization and code generation) are
-added here as they are completed and validated.
+The next stage (optimization and code generation) is added here as it is completed and
+validated.
 
 ## Status
 
@@ -26,17 +27,18 @@ added here as they are completed and validated.
   language construct the reference compiler supports. Their output is verified identical
   to the reference lexer and parser across all example programs and a stress corpus
   (`tests/test_selfhost_lexer.py`, `tests/test_selfhost_parser.py`).
-- **Stage 2 — Semantic analysis: in progress.**
+- **Stage 2 — Semantic analysis: complete.** Every semantic rule the reference compiler
+  performs is reproduced in Ulang and verified equivalent:
   - Name resolution and type checking (`checker.ul`): symbol and scope management,
     undefined-name detection, type inference, type-mismatch diagnostics, pattern
     validation (unknown-variant and arity), and match exhaustiveness checking, in a single
-    walk mirroring the reference `src/checker.py`. Verified identical to the reference —
-    same diagnostics in the same order — across a semantic corpus, all example programs,
-    and randomly generated typed programs (`tests/test_selfhost_checker.py`).
-  - Visibility / package exports (`exports.ul`): computes a module's public API — the set
-    the runtime package loader (`src/loader.py`) exposes to importers — and is verified
-    identical to it (`tests/test_selfhost_exports.py`). Remaining Stage-2 subsystem:
-    constant evaluation.
+    walk mirroring the reference `src/checker.py`
+    (`tests/test_selfhost_checker.py`).
+  - Visibility / package exports (`exports.ul`): a module's public API, identical to what
+    the runtime package loader exposes (`tests/test_selfhost_exports.py`).
+  - Constant evaluation (`consteval.ul`): compile-time evaluation of integer and boolean
+    constant expressions, including constant propagation across `const` declarations,
+    matching the reference's folding semantics (`tests/test_selfhost_consteval.py`).
 - **Stage 3 — Optimization and code generation: not started.**
 
 ## Running

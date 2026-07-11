@@ -24,6 +24,7 @@ SUITES = [
     "test_selfhost_parser.py",
     "test_selfhost_checker.py",
     "test_selfhost_exports.py",
+    "test_selfhost_consteval.py",
     "test_memory.py",
     "test_platform.py",
 ]

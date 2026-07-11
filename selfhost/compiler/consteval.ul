@@ -1,0 +1,259 @@
+import fs
+
+# Constant evaluation.
+#
+# Evaluates constant expressions at semantic-analysis time, matching the values the
+# reference compiler computes (src/operations.py, used by the optimizer's constant
+# folding). Integer and boolean constant expressions are evaluated to their exact value;
+# expressions that are not integer/boolean compile-time constants (they involve names,
+# calls, or opaque string/float literals) are reported as non-constant ("?").
+#
+# Folding is performed with Ulang's own operators, which are exactly the operators the
+# reference runtime uses, so the results are identical by construction.
+
+fn read_sexpr(text: str) -> dyn:
+    let chars = text.chars()
+    let state = [chars, chars.len(), 0]
+    return parse_node(state)
+
+fn cur(state: dyn) -> str:
+    if state[2] >= state[1]:
+        return ""
+    return state[0][state[2]]
+
+fn parse_node(state: dyn) -> dyn:
+    skip_ws(state)
+    if cur(state) == "(":
+        state[2] = state[2] + 1
+        var items = []
+        while true:
+            skip_ws(state)
+            if cur(state) == ")":
+                state[2] = state[2] + 1
+                return items
+            if cur(state) == "":
+                return items
+            items.push(parse_node(state))
+        return items
+    return parse_atom(state)
+
+fn parse_atom(state: dyn) -> str:
+    var s = ""
+    while state[2] < state[1]:
+        let c = state[0][state[2]]
+        if c == " " or c == "(" or c == ")":
+            break
+        s += c
+        state[2] = state[2] + 1
+    return s
+
+fn skip_ws(state: dyn):
+    while state[2] < state[1] and state[0][state[2]] == " ":
+        state[2] = state[2] + 1
+
+fn is_atom(node: dyn) -> bool:
+    return not is_list(node)
+
+fn tag(node: dyn) -> str:
+    if is_list(node):
+        if node.len() == 0:
+            return ""
+        return node[0]
+    return node
+
+fn is_number_str(s: str) -> bool:
+    if s.len() == 0:
+        return false
+    for c in s.chars():
+        if not (c >= "0" and c <= "9"):
+            return false
+    return true
+
+# A folded value is tagged: ["int", n], ["bool", b], or ["no"] (not constant).
+
+fn no_const() -> dyn:
+    return ["no"]
+
+fn is_const(v: dyn) -> bool:
+    return v[0] != "no"
+
+fn env_get(env: dyn, name: str) -> dyn:
+    var i = env.len() - 1
+    while i >= 0:
+        if env[i][0] == name:
+            return env[i][1]
+        i = i - 1
+    return no_const()
+
+fn as_int(v: dyn) -> int:
+    if v[0] == "bool":
+        if v[1]:
+            return 1
+        return 0
+    return v[1]
+
+fn is_intlike(v: dyn) -> bool:
+    return v[0] == "int" or v[0] == "bool"
+
+fn eval_const(node: dyn, env: dyn) -> dyn:
+    if is_atom(node):
+        if is_number_str(node):
+            return ["int", to_int(node)]
+        if node == "true":
+            return ["bool", true]
+        if node == "false":
+            return ["bool", false]
+        return env_get(env, node)
+    let t = tag(node)
+    if t == "neg":
+        let a = eval_const(node[1], env)
+        if a[0] == "int":
+            return ["int", 0 - a[1]]
+        return no_const()
+    if t == "not":
+        let a = eval_const(node[1], env)
+        if a[0] == "bool":
+            return ["bool", not a[1]]
+        return no_const()
+    if t == "and":
+        return eval_bool_binop(node, "and", env)
+    if t == "or":
+        return eval_bool_binop(node, "or", env)
+    if t == "+" or t == "-" or t == "*" or t == "/" or t == "%":
+        return eval_arith(node, t, env)
+    if t == "==" or t == "!=" or t == "<" or t == "<=" or t == ">" or t == ">=":
+        return eval_compare(node, t, env)
+    return no_const()
+
+fn to_int(s: str) -> int:
+    var n = 0
+    for c in s.chars():
+        n = n * 10 + digit(c)
+    return n
+
+fn digit(c: str) -> int:
+    if c == "0":
+        return 0
+    if c == "1":
+        return 1
+    if c == "2":
+        return 2
+    if c == "3":
+        return 3
+    if c == "4":
+        return 4
+    if c == "5":
+        return 5
+    if c == "6":
+        return 6
+    if c == "7":
+        return 7
+    if c == "8":
+        return 8
+    return 9
+
+fn eval_arith(node: dyn, op: str, env: dyn) -> dyn:
+    let a = eval_const(node[1], env)
+    let b = eval_const(node[2], env)
+    if not is_intlike(a) or not is_intlike(b):
+        return no_const()
+    # '+' '-' '/' '%' reject bool operands (operations.binop guards); '*' allows them
+    if op != "*" and (a[0] == "bool" or b[0] == "bool"):
+        return no_const()
+    let x = as_int(a)
+    let y = as_int(b)
+    if op == "+":
+        return ["int", x + y]
+    if op == "-":
+        return ["int", x - y]
+    if op == "*":
+        return ["int", x * y]
+    if op == "/":
+        if y == 0:
+            return no_const()
+        return ["int", x / y]
+    if op == "%":
+        if y == 0:
+            return no_const()
+        return ["int", x % y]
+    return no_const()
+
+fn eval_compare(node: dyn, op: str, env: dyn) -> dyn:
+    let a = eval_const(node[1], env)
+    let b = eval_const(node[2], env)
+    if not is_intlike(a) or not is_intlike(b):
+        return no_const()
+    # ordering comparisons require both operands the same kind (operations.binop guard);
+    # equality compares by value across int/bool
+    if op != "==" and op != "!=":
+        if a[0] != b[0]:
+            return no_const()
+    let x = as_int(a)
+    let y = as_int(b)
+    if op == "==":
+        return ["bool", x == y]
+    if op == "!=":
+        return ["bool", x != y]
+    if op == "<":
+        return ["bool", x < y]
+    if op == "<=":
+        return ["bool", x <= y]
+    if op == ">":
+        return ["bool", x > y]
+    return ["bool", x >= y]
+
+fn eval_bool_binop(node: dyn, op: str, env: dyn) -> dyn:
+    let a = eval_const(node[1], env)
+    if a[0] != "bool":
+        return no_const()
+    let b = eval_const(node[2], env)
+    if b[0] != "bool":
+        return no_const()
+    if op == "and":
+        return ["bool", a[1] and b[1]]
+    return ["bool", a[1] or b[1]]
+
+fn render(v: dyn) -> str:
+    if v[0] == "int":
+        return int_str(v[1])
+    if v[0] == "bool":
+        if v[1]:
+            return "true"
+        return "false"
+    return "?"
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var neg = false
+    if m < 0:
+        neg = true
+        m = 0 - m
+    var s = ""
+    while m > 0:
+        s = digit_char(m % 10) + s
+        m = m / 10
+    if neg:
+        return "-" + s
+    return s
+
+fn digit_char(d: int) -> str:
+    let chars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    return chars[d]
+
+fn main():
+    match fs.read("tree.sexpr"):
+        Ok(text) => run_consteval(text)
+        Err(e) => print("error: ${e}")
+
+fn run_consteval(text: str):
+    var env = []
+    for line in text.split("\n"):
+        if line.trim() != "":
+            let node = read_sexpr(line)
+            if tag(node) == "const":
+                let v = eval_const(node[3], env)
+                if is_const(v):
+                    env.push([node[1], v])
+                print("${node[1]} = ${render(v)}")

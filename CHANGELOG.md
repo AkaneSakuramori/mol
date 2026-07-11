@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.8.6
+
+### Added
+- **Semantic analysis — constant evaluation** (`selfhost/compiler/consteval.ul`),
+  completing **Stage 2 of the self-hosting roadmap**. It evaluates integer and boolean
+  constant expressions at compile time — arithmetic, comparisons, boolean logic, negation,
+  and constant propagation across `const` declarations — matching the reference compiler's
+  folding semantics exactly (including bool-in-arithmetic and division/modulo-by-zero
+  handling). Non-constant expressions are reported as such.
+- Validation (`tests/test_selfhost_consteval.py`): the self-hosted evaluator is verified
+  identical to the reference across a corpus and 50 randomly generated constant
+  expressions.
+
+### Stage 2 complete
+The self-hosted semantic analyzer now reproduces every semantic rule the Python reference
+compiler performs — name resolution, type inference and checking, pattern validation,
+exhaustiveness checking, visibility/package exports, and constant evaluation — each proven
+equivalent to the reference. Stage 3 (optimization and code generation) has not begun.
+
 ## 1.8.5
 
 ### Added
