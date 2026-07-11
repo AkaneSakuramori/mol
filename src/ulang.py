@@ -12,7 +12,7 @@ from vm import VM
 from builtins_mod import UlangPanic
 import ast_nodes as ast
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 
 def _optimize(tree):
@@ -94,6 +94,32 @@ def cmd_run(path):
     except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
+    return 0
+
+
+def cmd_gc_stats(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    interp = Interpreter()
+    interp.search_roots = _project_roots(path)
+    interp.memory.enabled = True
+    try:
+        interp.run(_optimize(tree))
+    except UlangPanic as e:
+        print(f"panic: {e.message}", file=sys.stderr)
+        return 1
+    interp.memory.collect(full=True)
+    stats = interp.memory.stats()
+    print("gc statistics:")
+    for key in ("total_allocated", "live_objects", "young", "old",
+                "minor_collections", "major_collections",
+                "objects_reclaimed", "promotions", "max_pause_ms"):
+        print(f"  {key}: {stats[key]}")
     return 0
 
 
@@ -414,6 +440,8 @@ def main(argv):
         return cmd_emit_ir(argv[2])
     if command == "escape":
         return cmd_escape(argv[2])
+    if command == "gc-stats":
+        return cmd_gc_stats(argv[2])
     if command == "fmt":
         write = "-w" in argv[3:]
         return cmd_fmt(argv[2], write)

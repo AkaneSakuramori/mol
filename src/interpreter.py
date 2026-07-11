@@ -64,9 +64,33 @@ class Interpreter:
         self.functions = {}
         self.depth = 0
         self.max_depth = 2500
+        self.env_stack = []
+        import memory
+        self.memory = memory.MemoryManager(self._gc_roots)
         for name, val in BUILTINS.items():
             self.globals.set(name, val)
+        self._install_gc_builtins()
         runtime.install(self)
+
+    def _gc_roots(self):
+        roots = [self.globals]
+        roots.extend(self.env_stack)
+        return roots
+
+    def _install_gc_builtins(self):
+        from values import Builtin
+        def enable_and_collect(a):
+            self.memory.enabled = True
+            return self.memory.collect(full=True)
+        self.globals.set("gc_collect", Builtin("gc_collect", enable_and_collect))
+        self.globals.set("gc_alloc_count", Builtin("gc_alloc_count", lambda a: self.memory.stats()["total_allocated"]))
+        self.globals.set("gc_live_count", Builtin("gc_live_count", lambda a: self.memory.stats()["live_objects"]))
+        self.globals.set("gc_enable", Builtin("gc_enable", lambda a: self._gc_set(True)))
+        self.globals.set("gc_disable", Builtin("gc_disable", lambda a: self._gc_set(False)))
+
+    def _gc_set(self, on):
+        self.memory.enabled = on
+        return None
 
     def run(self, module):
         import sys as _sys
@@ -163,7 +187,7 @@ class Interpreter:
         def ctor(args):
             if len(args) != len(field_names):
                 raise UlangPanic(f"{decl.name}: expected {len(field_names)} fields, got {len(args)}")
-            return Struct(decl.name, dict(zip(field_names, args)))
+            return self.memory.record(Struct(decl.name, dict(zip(field_names, args))))
 
         return Builtin(decl.name, ctor)
 
@@ -172,7 +196,7 @@ class Interpreter:
             return Variant(enum_name, variant.name, [])
 
         def ctor(args):
-            return Variant(enum_name, variant.name, list(args))
+            return self.memory.record(Variant(enum_name, variant.name, list(args)))
 
         return Builtin(variant.name, ctor)
 
@@ -211,6 +235,7 @@ class Interpreter:
                 raise UlangPanic(f"{closure.name}: missing argument '{param.name}'")
         deferred = []
         env.set("__defer__", deferred)
+        self.env_stack.append(env)
         try:
             if isinstance(closure.body, list):
                 result = self.exec_block(closure.body, env)
@@ -224,6 +249,8 @@ class Interpreter:
         except TryUnwind as t:
             self.run_deferred(deferred, env)
             return t.value
+        finally:
+            self.env_stack.pop()
 
     def run_deferred(self, deferred, env):
         for expr in reversed(deferred):
@@ -233,6 +260,7 @@ class Interpreter:
         result = None
         for stmt in stmts:
             result = self.exec(stmt, env)
+            self.memory.safepoint()
         return result
 
     def exec(self, node, env):
@@ -421,16 +449,16 @@ class Interpreter:
         return env.get(node.id)
 
     def eval_ListLit(self, node, env):
-        return [self.eval(e, env) for e in node.elements]
+        return self.memory.record([self.eval(e, env) for e in node.elements])
 
     def eval_DictLit(self, node, env):
-        return {self.eval(k, env): self.eval(v, env) for k, v in node.pairs}
+        return self.memory.record({self.eval(k, env): self.eval(v, env) for k, v in node.pairs})
 
     def eval_TupleLit(self, node, env):
-        return tuple(self.eval(e, env) for e in node.elements)
+        return self.memory.record(tuple(self.eval(e, env) for e in node.elements))
 
     def eval_Lambda(self, node, env):
-        return Closure(node.params, node.body, env, "<lambda>")
+        return self.memory.record(Closure(node.params, node.body, env, "<lambda>"))
 
     def eval_Ternary(self, node, env):
         if self.truthy(self.eval(node.cond, env)):

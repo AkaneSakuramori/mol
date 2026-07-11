@@ -12,3 +12,4 @@ build/
 ulang_modules/
 .claude/
 LANGUAGE_DESIGN_PLAN.md
+runtime/test_gc

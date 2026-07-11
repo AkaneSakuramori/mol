@@ -163,6 +163,9 @@ class Checker:
             "nursery": FnT([], DYN),
             "assert": FnT([BOOL], UNIT),
             "assert_eq": FnT([DYN, DYN], UNIT),
+            "gc_collect": FnT([], INT),
+            "gc_alloc_count": FnT([], INT),
+            "gc_live_count": FnT([], INT),
         }
 
     def check(self, module):

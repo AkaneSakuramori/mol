@@ -14,6 +14,7 @@ Guides and references for the Ulang programming language.
 
 - [Language Reference](language-reference.md) — the full syntax and semantics.
 - [Standard Library](stdlib.md) — built-in functions and modules.
+- [Memory Management](memory.md) — the garbage collector and its integration.
 
 ## Background
 

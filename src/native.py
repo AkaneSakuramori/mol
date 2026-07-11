@@ -32,14 +32,21 @@ def compile_to_object(module_ast, opt_level=2):
     return machine.emit_object(mod), llvm_ir
 
 
+_RUNTIME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "runtime")
+
+
 def build_executable(module_ast, output_path, opt_level=2, keep_ir=False):
     obj, llvm_ir = compile_to_object(module_ast, opt_level)
     with tempfile.NamedTemporaryFile(suffix=".o", delete=False) as f:
         obj_path = f.name
         f.write(obj)
+    gc_src = os.path.join(_RUNTIME_DIR, "ulang_gc.c")
+    link_inputs = [obj_path]
+    if os.path.exists(gc_src):
+        link_inputs.append(gc_src)
     try:
         result = subprocess.run(
-            ["gcc", obj_path, "-o", output_path, "-lm"],
+            ["gcc"] + link_inputs + ["-I", _RUNTIME_DIR, "-o", output_path, "-lm", "-O2"],
             capture_output=True, text=True,
         )
         if result.returncode != 0:

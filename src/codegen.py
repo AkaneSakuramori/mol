@@ -95,11 +95,16 @@ class ModuleGen:
     def _emit_entry(self):
         if "main" not in self.functions:
             return
+        gc_init_ty = ir.FunctionType(VOID, [])
+        gc_init = ir.Function(self.module, gc_init_ty, name="ul_gc_init")
+        gc_shutdown = ir.Function(self.module, gc_init_ty, name="ul_gc_shutdown")
         entry_ty = ir.FunctionType(I32, [])
         entry = ir.Function(self.module, entry_ty, name="main")
         block = entry.append_basic_block("entry")
         b = ir.IRBuilder(block)
+        b.call(gc_init, [])
         result = b.call(self.functions["main"], [])
+        b.call(gc_shutdown, [])
         b.ret(b.trunc(result, I32))
 
     def _declare(self, decl):

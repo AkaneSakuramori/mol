@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.0
+
+### Added
+- Memory management: a generational, incremental mark-sweep tracing garbage collector.
+  - Interpreter/VM: tracks lists, dicts, tuples, structs, enum variants, and closures;
+    roots are globals and the live call stack; collection runs at statement safepoints.
+    Reclaims cycles that reference counting cannot. Off by default (zero overhead);
+    enable with `ULANG_GC=1` or `gc_enable()`.
+  - Native backend: every binary links and initializes a C mark-sweep collector
+    (`runtime/ulang_gc.c`), unit-tested in `runtime/test_gc.c`.
+  - Built-ins `gc_enable`, `gc_disable`, `gc_collect`, `gc_alloc_count`, `gc_live_count`,
+    and the `ulang gc-stats` command.
+  - Memory management guide (`docs/memory.md`) and `bench/memory_benchmark.py`.
+- Program output is identical with the collector on or off; existing code is unaffected.
+
 ## 1.4.0
 
 ### Added
