@@ -1,63 +1,44 @@
 # Changelog
 
-## 1.8.6
-
-### Added
-- **Semantic analysis — constant evaluation** (`selfhost/compiler/consteval.ul`),
-  completing **Stage 2 of the self-hosting roadmap**. It evaluates integer and boolean
-  constant expressions at compile time — arithmetic, comparisons, boolean logic, negation,
-  and constant propagation across `const` declarations — matching the reference compiler's
-  folding semantics exactly (including bool-in-arithmetic and division/modulo-by-zero
-  handling). Non-constant expressions are reported as such.
-- Validation (`tests/test_selfhost_consteval.py`): the self-hosted evaluator is verified
-  identical to the reference across a corpus and 50 randomly generated constant
-  expressions.
-
-### Stage 2 complete
-The self-hosted semantic analyzer now reproduces every semantic rule the Python reference
-compiler performs — name resolution, type inference and checking, pattern validation,
-exhaustiveness checking, visibility/package exports, and constant evaluation — each proven
-equivalent to the reference. Stage 3 (optimization and code generation) has not begun.
-
-## 1.8.5
-
-### Added
-- **Semantic analysis — visibility / package exports** (`selfhost/compiler/exports.ul`).
-  The self-hosted compiler now computes a module's public API — the exact set of names the
-  runtime package loader (`src/loader.py`) exposes to importers: `pub` functions and types,
-  the variants of `pub` enums, and all consts; everything else (non-`pub` items, imports,
-  externs, impls, traits) is private.
-- Validation (`tests/test_selfhost_exports.py`): the self-hosted export set is verified
-  identical to the reference loader's across a corpus of module shapes and all example
-  programs.
-
-### Notes
-- This is the visibility/access-control subsystem: in Ulang, access control is enforced at
-  package boundaries by the loader (a private item is simply absent from an imported
-  module), and the self-hosted `exports.ul` reproduces that boundary exactly. Only constant
-  evaluation remains before Stage 2 is complete.
-
 ## 1.8.4
 
+Completes **Stage 2 of the self-hosting roadmap**: the self-hosted compiler now reproduces
+every semantic rule the Python reference compiler performs, each proven equivalent.
+
 ### Added
-- **Semantic analysis — pattern validation and exhaustiveness checking**, implemented in
-  both the reference compiler (`src/checker.py`, the specification) and the self-hosted
-  compiler (`selfhost/compiler/checker.ul`), and proven equivalent.
-  - Pattern validation: a variant pattern referencing an unknown variant, or with the
-    wrong number of fields, is reported (`unknown variant 'X'`,
-    `variant 'X' expects N field(s), got M`). Recognizes user enum variants and the
-    built-in `Some`/`None`/`Ok`/`Err`.
-  - Exhaustiveness checking: a `match` on a known enum type (a user `enum`, `Option`, or
-    `Result`) that omits variants without a catch-all arm is reported
-    (`non-exhaustive match: missing 'X', 'Y'`). Guarded arms do not count toward coverage.
-- Validation (`tests/test_selfhost_checker.py`) covers both subsystems and confirms the
-  self-hosted checker emits identical diagnostics to the reference across a semantic
-  corpus, all example programs, and randomly generated programs.
+- **Pattern validation** (`src/checker.py` and `selfhost/compiler/checker.ul`): a variant
+  pattern referencing an unknown variant, or with the wrong number of fields, is reported
+  (`unknown variant 'X'`, `variant 'X' expects N field(s), got M`). Recognizes user enum
+  variants and the built-in `Some`/`None`/`Ok`/`Err`.
+- **Exhaustiveness checking** (`src/checker.py` and `selfhost/compiler/checker.ul`): a
+  `match` on a known enum type (a user `enum`, `Option`, or `Result`) that omits variants
+  without a catch-all arm is reported (`non-exhaustive match: missing 'X', 'Y'`). Guarded
+  arms do not count toward coverage.
+- **Visibility / package exports** (`selfhost/compiler/exports.ul`): computes a module's
+  public API — the exact set of names the runtime package loader (`src/loader.py`) exposes
+  to importers: `pub` functions and types, the variants of `pub` enums, and all consts;
+  everything else (non-`pub` items, imports, externs, impls, traits) is private.
+- **Constant evaluation** (`selfhost/compiler/consteval.ul`): compile-time evaluation of
+  integer and boolean constant expressions — arithmetic, comparisons, boolean logic,
+  negation, and constant propagation across `const` declarations — matching the reference
+  compiler's folding semantics exactly (including bool-in-arithmetic and
+  division/modulo-by-zero handling). Non-constant expressions are reported as such.
+- Validation for each subsystem (`tests/test_selfhost_checker.py`,
+  `tests/test_selfhost_exports.py`, `tests/test_selfhost_consteval.py`): each is verified
+  identical to the reference across curated corpora, all example programs, and randomly
+  generated programs.
+
+### Stage 2 complete
+The self-hosted semantic analyzer now performs name resolution, type inference and
+checking, pattern validation, exhaustiveness checking, visibility/package exports, and
+constant evaluation — each proven equivalent to the reference. Stage 3 (optimization and
+code generation) has not begun.
 
 ### Notes
-- These are additive diagnostics surfaced by `ulang check`; runtime behavior is unchanged
-  (`ulang run` does not gate on the checker), and all example programs remain valid. The
-  self-hosted and reference checkers were extended together to stay equivalent.
+- Pattern validation and exhaustiveness are additive diagnostics surfaced by `ulang check`;
+  runtime behavior is unchanged (`ulang run` does not gate on the checker), and all example
+  programs remain valid. The reference and self-hosted checkers were extended together to
+  stay equivalent.
 
 ## 1.8.3
 

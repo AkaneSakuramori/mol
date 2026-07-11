@@ -2,7 +2,7 @@
   "name": "ulang",
   "displayName": "Ulang",
   "description": "Language support for Ulang: diagnostics, hover, completion, go-to-definition, symbols, and formatting.",
-  "version": "1.8.6",
+  "version": "1.8.4",
   "publisher": "ulang",
   "engines": {
     "vscode": "^1.75.0"

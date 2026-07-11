@@ -6,7 +6,7 @@ Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **1.8.6** — self-hosting Stage 2 complete (full semantic analysis), Stage 1 complete, cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
+> Status: **1.8.4** — self-hosting Stage 2 complete (full semantic analysis), Stage 1 complete, cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
 
 ## Features
 
