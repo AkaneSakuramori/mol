@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Language Server Protocol implementation (`ulang lsp`): diagnostics, hover,
+  completion, go-to-definition, document symbols, and formatting over JSON-RPC.
+- VS Code extension in `editors/vscode` with a TextMate grammar for highlighting.
+- Editor setup guide covering VS Code, Neovim, and other LSP clients.
+
 ## 1.0.0
 
 First stable release. The complete toolchain is in place: source to native code,

@@ -146,7 +146,7 @@ class Parser:
             return self.parse_enum(is_pub)
         if self.at_keyword("trait"):
             return self.parse_trait(is_pub)
-        self.error(f"unexpected token {self.current.value!r} at top level")
+        self.error(f"unexpected {_show(self.current)} at top level")
 
     def parse_import(self):
         if self.at_keyword("import"):
@@ -844,7 +844,7 @@ class Parser:
             return self.parse_dict()
         if tok.type == T.LPAREN:
             return self.parse_paren()
-        self.error(f"unexpected token {tok.value!r}")
+        self.error(f"unexpected {_show(tok)}")
 
     def build_string(self, parts):
         out = []

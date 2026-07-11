@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Ulang",
+  "scopeName": "source.ulang",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#types" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "comments": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.ulang"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "\\b(fn|let|var|const|type|enum|trait|impl|derive|pub|import|from|as|extern)\\b",
+          "name": "keyword.declaration.ulang"
+        },
+        {
+          "match": "\\b(if|elif|else|match|while|for|in|with|defer|return|break|continue)\\b",
+          "name": "keyword.control.ulang"
+        },
+        {
+          "match": "\\b(and|or|not|true|false|none)\\b",
+          "name": "keyword.operator.word.ulang"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.ulang",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.ulang" },
+        {
+          "begin": "\\$\\{",
+          "end": "\\}",
+          "name": "meta.interpolation.ulang",
+          "patterns": [{ "include": "$self" }]
+        }
+      ]
+    },
+    "numbers": {
+      "match": "\\b[0-9][0-9_]*(\\.[0-9]+)?\\b",
+      "name": "constant.numeric.ulang"
+    },
+    "types": {
+      "match": "\\b(int|float|bool|str|dyn|Option|Result)\\b",
+      "name": "support.type.ulang"
+    },
+    "functions": {
+      "match": "\\b([a-z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+      "name": "entity.name.function.ulang"
+    }
+  }
+}

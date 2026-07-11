@@ -19,6 +19,7 @@ runs without a global interpreter lock, and treats errors as values.
 - Structured concurrency: nurseries, tasks, and channels.
 - C FFI: call native libraries directly with `extern fn`.
 - Four execution engines: interpreter, bytecode VM, tiered JIT, and native (LLVM).
+- Editor support via a built-in Language Server (`ulang lsp`).
 - Tooling: formatter, project scaffolding, and a standard library.
 
 ## Example
@@ -122,7 +123,11 @@ ulang init myapp          # scaffold a project (ulang.toml + src/main.ul)
 ulang fmt file.ul         # print canonical formatting
 ulang fmt file.ul -w      # format in place
 ulang escape file.ul      # show stack vs heap allocation analysis
+ulang lsp                 # start the language server for editors
 ```
+
+Editor integration (VS Code, Neovim, and any LSP client) is described in
+[docs/editor-setup.md](docs/editor-setup.md).
 
 ## Getting started
 
@@ -191,6 +196,7 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 - `src/escape.py` — escape analysis (stack vs heap allocation).
 - `src/ffi.py` — C foreign-function interface.
 - `src/formatter.py` — canonical source formatter.
+- `src/lsp.py`, `src/lsp_analysis.py` — Language Server Protocol implementation.
 - `src/repl.py` — interactive shell.
 - `src/stdlib.py`, `src/builtins_mod.py` — built-in functions and modules.
 
@@ -202,6 +208,8 @@ examples/        example .ul programs
 examples/native/ programs the native backend compiles to binaries
 selfhost/        Ulang tooling written in Ulang
 src/             compiler implementation
+editors/         editor integrations (VS Code extension)
+docs/            guides and reference documentation
 tests/           compiler tests
 bench/           benchmarks across execution engines
 ```
@@ -219,6 +227,7 @@ Full guides and references live in [`docs/`](docs/):
 - [Standard Library](docs/stdlib.md)
 - [FFI Guide](docs/ffi.md)
 - [Concurrency Tutorial](docs/concurrency.md)
+- [Editor Setup](docs/editor-setup.md)
 - [Why Ulang?](docs/why-ulang.md)
 
 ## Roadmap

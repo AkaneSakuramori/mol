@@ -5,6 +5,7 @@ Guides and references for the Ulang programming language.
 ## Guides
 
 - [Getting Started](getting-started.md) — install the toolchain and run your first program.
+- [Editor Setup](editor-setup.md) — LSP integration for VS Code, Neovim, and others.
 - [Concurrency Tutorial](concurrency.md) — tasks, nurseries, and channels.
 - [FFI Guide](ffi.md) — call C libraries from Ulang.
 

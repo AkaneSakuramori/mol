@@ -1,0 +1,56 @@
+{
+  "name": "ulang",
+  "displayName": "Ulang",
+  "description": "Language support for Ulang: diagnostics, hover, completion, go-to-definition, symbols, and formatting.",
+  "version": "1.0.0",
+  "publisher": "ulang",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:ulang"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ulang",
+        "aliases": [
+          "Ulang",
+          "ulang"
+        ],
+        "extensions": [
+          ".ul"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ulang",
+        "scopeName": "source.ulang",
+        "path": "./syntaxes/ulang.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Ulang",
+      "properties": {
+        "ulang.serverCommand": {
+          "type": "array",
+          "default": [
+            "python3",
+            "src/ulang.py",
+            "lsp"
+          ],
+          "description": "Command used to launch the Ulang language server. Use an absolute path to src/ulang.py."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  }
+}

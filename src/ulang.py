@@ -230,7 +230,7 @@ def cmd_jit(path):
 
 def main(argv):
     if len(argv) < 2:
-        print("usage: ulang <lex|parse|check|run|runvm|jit|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
+        print("usage: ulang <lex|parse|check|run|runvm|jit|build|emit-ir|escape|fmt|init|lsp|repl> ...", file=sys.stderr)
         return 2
     command = argv[1]
     if command in ("version", "--version", "-v"):
@@ -239,6 +239,9 @@ def main(argv):
     if command == "repl":
         from repl import repl
         return repl()
+    if command == "lsp":
+        from lsp import main as lsp_main
+        return lsp_main()
     if command == "init":
         name = argv[2] if len(argv) > 2 else "app"
         return cmd_init(name)

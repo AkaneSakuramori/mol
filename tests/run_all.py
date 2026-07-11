@@ -17,6 +17,7 @@ SUITES = [
     "test_errors.py",
     "test_fuzz.py",
     "test_docs.py",
+    "test_lsp.py",
 ]
 
 
