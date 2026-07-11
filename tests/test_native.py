@@ -39,7 +39,7 @@ def run():
     failed = 0
     tmp = tempfile.mkdtemp()
     for name in EXACT:
-        path = os.path.join(NATIVE, name + ".mol")
+        path = os.path.join(NATIVE, name + ".ul")
         out = os.path.join(tmp, name)
         try:
             code, native_out = build_and_run(path, out)
@@ -55,7 +55,7 @@ def run():
             failed += 1
 
     for name in RUNS:
-        path = os.path.join(NATIVE, name + ".mol")
+        path = os.path.join(NATIVE, name + ".ul")
         out = os.path.join(tmp, name)
         try:
             code, native_out = build_and_run(path, out)

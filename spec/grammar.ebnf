@@ -1,5 +1,5 @@
 (*
-  Mol Language Grammar — v0
+  Ulang Language Grammar — v0
   Notation: EBNF. Layout-sensitive: INDENT / DEDENT / NEWLINE are produced by the lexer.
 *)
 

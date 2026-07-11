@@ -1,9 +1,10 @@
 from bytecode import Op
 import values as V
-from values import Struct, Variant, Closure, Builtin, BoundMethod, some, ok, err, NONE, mol_str
-from builtins_mod import BUILTINS, get_method, MolPanic
+from values import Struct, Variant, Closure, Builtin, BoundMethod, some, ok, err, NONE, ulang_str
+from builtins_mod import BUILTINS, get_method, UlangPanic
 import patterns
 import stdlib
+import operations
 
 
 class Env:
@@ -48,6 +49,8 @@ class VM:
     def __init__(self, program):
         self.program = program
         self.globals = {}
+        self.depth = 0
+        self.max_depth = 2500
         self._setup()
 
     def _setup(self):
@@ -95,9 +98,11 @@ class VM:
         return Builtin(name, ctor)
 
     def run(self):
+        import sys as _sys
+        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
         main = self.globals.get("main")
         if main is None:
-            raise MolPanic("no main function")
+            raise UlangPanic("no main function")
         return self.call(main, [])
 
     def call(self, fn, args):
@@ -106,16 +111,25 @@ class VM:
         if isinstance(fn, BoundMethod):
             return self.call(fn.fn, [fn.receiver] + args)
         if isinstance(fn, Closure):
-            parent = fn.env if isinstance(fn.env, Env) else None
-            env = Env({}, parent)
-            code = fn.body
-            params = code.params
-            for i, pname in enumerate(params):
-                env.define(pname, args[i] if i < len(args) else None)
-            return self.run_code(code, env)
+            self.depth += 1
+            if self.depth > self.max_depth:
+                self.depth -= 1
+                raise UlangPanic(f"stack overflow: recursion exceeded {self.max_depth} frames")
+            try:
+                parent = fn.env if isinstance(fn.env, Env) else None
+                env = Env({}, parent)
+                code = fn.body
+                params = code.params
+                if len(args) > len(params):
+                    raise UlangPanic(f"{code.name}: expected {len(params)} argument(s), got {len(args)}")
+                for i, pname in enumerate(params):
+                    env.define(pname, args[i] if i < len(args) else None)
+                return self.run_code(code, env)
+            finally:
+                self.depth -= 1
         if isinstance(fn, Variant):
             return fn
-        raise MolPanic(f"not callable: {fn!r}")
+        raise UlangPanic(f"not callable: {fn!r}")
 
     def run_code(self, code, env):
         frame = Frame(code, env)
@@ -137,7 +151,7 @@ class VM:
                 elif arg in self.globals:
                     stack.append(self.globals[arg])
                 else:
-                    raise MolPanic(f"undefined name '{arg}'")
+                    raise UlangPanic(f"undefined name '{arg}'")
             elif op == Op.STORE_NAME:
                 env.define(arg, stack.pop())
             elif op == Op.ASSIGN_NAME:
@@ -170,7 +184,7 @@ class VM:
             elif op == Op.BUILD_STRING:
                 parts = stack[len(stack) - arg:]
                 del stack[len(stack) - arg:]
-                stack.append("".join(mol_str(p) for p in parts))
+                stack.append("".join(ulang_str(p) for p in parts))
             elif op == Op.JUMP:
                 frame.ip = arg
             elif op == Op.JUMP_IF_FALSE:
@@ -203,7 +217,7 @@ class VM:
                 if isinstance(target, Struct):
                     target.fields[arg] = value
                 else:
-                    raise MolPanic("cannot set attribute")
+                    raise UlangPanic("cannot set attribute")
             elif op == Op.MAKE_CLOSURE:
                 stack.append(Closure(None, arg, env, "<lambda>"))
             elif op == Op.MATCH_VARIANT:
@@ -234,7 +248,7 @@ class VM:
                     stack.append(nxt)
                     stack.append(True)
             else:
-                raise MolPanic(f"unknown op {op}")
+                raise UlangPanic(f"unknown op {op}")
         return None
 
     def iterate(self, value):
@@ -242,14 +256,10 @@ class VM:
             return iter(value)
         if isinstance(value, dict):
             return iter(list(value.keys()))
-        raise MolPanic(f"not iterable: {type(value).__name__}")
+        raise UlangPanic(f"not iterable: {type(value).__name__}")
 
     def get_index(self, target, index):
-        if isinstance(target, dict):
-            if index not in target:
-                raise MolPanic(f"key not found: {index!r}")
-            return target[index]
-        return target[index]
+        return operations.index(target, index)
 
     def get_attr(self, obj, name):
         if isinstance(obj, Struct) and name in obj.fields:
@@ -257,7 +267,7 @@ class VM:
         if isinstance(obj, V.Module):
             if name in obj.members:
                 return obj.members[name]
-            raise MolPanic(f"module '{obj.name}' has no member '{name}'")
+            raise UlangPanic(f"module '{obj.name}' has no member '{name}'")
         if isinstance(obj, stdlib._FileValue):
             m = obj.method(name)
             if m is not None:
@@ -268,43 +278,17 @@ class VM:
         method = get_method(obj, name, self)
         if method is not None:
             return method
-        raise MolPanic(f"no attribute '{name}'")
+        raise UlangPanic(f"no attribute '{name}'")
 
     def binary(self, op, left, right):
-        if op == "+":
-            return left + right
-        if op == "-":
-            return left - right
-        if op == "*":
-            return left * right
-        if op == "/":
-            if isinstance(left, int) and isinstance(right, int):
-                if right == 0:
-                    raise MolPanic("division by zero")
-                return left // right
-            return left / right
-        if op == "%":
-            return left % right
-        if op == "==":
-            return left == right
-        if op == "!=":
-            return left != right
-        if op == "<":
-            return left < right
-        if op == "<=":
-            return left <= right
-        if op == ">":
-            return left > right
-        if op == ">=":
-            return left >= right
-        raise MolPanic(f"unknown operator {op}")
+        return operations.binop(op, left, right)
 
     def unary(self, op, value):
         if op == "-":
             return -value
         if op == "not":
             return not self.truthy(value)
-        raise MolPanic(f"unknown unary {op}")
+        raise UlangPanic(f"unknown unary {op}")
 
     def truthy(self, value):
         if isinstance(value, bool):

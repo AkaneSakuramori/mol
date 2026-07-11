@@ -3,10 +3,10 @@ import time as _time
 import random as _random
 
 import values as V
-from values import Module, Builtin, Struct, some, ok, err, NONE, mol_str
+from values import Module, Builtin, Struct, some, ok, err, NONE, ulang_str
 
 
-class FileHandle(V.MolValue):
+class FileHandle(V.UlangValue):
     __slots__ = ("path", "fp", "mode")
 
     def __init__(self, path, mode):
@@ -31,7 +31,7 @@ def _fs_write(args):
     path, data = args[0], args[1]
     try:
         with open(path, "w", encoding="utf-8") as f:
-            f.write(mol_str(data))
+            f.write(ulang_str(data))
         return ok(None)
     except OSError as e:
         return err(str(e))
@@ -43,7 +43,7 @@ def _fs_open(args):
     return _FileValue(path, mode)
 
 
-class _FileValue(V.MolValue):
+class _FileValue(V.UlangValue):
     __slots__ = ("path", "fp")
 
     def __init__(self, path, mode):
@@ -52,7 +52,7 @@ class _FileValue(V.MolValue):
 
     def method(self, name):
         if name == "write":
-            return Builtin("write", lambda a: (self.fp.write(mol_str(a[0])), None)[1])
+            return Builtin("write", lambda a: (self.fp.write(ulang_str(a[0])), None)[1])
         if name == "read":
             return Builtin("read", lambda a: self.fp.read())
         if name == "close":
@@ -129,7 +129,7 @@ STR = Module("str", {
     "from_int": Builtin("from_int", lambda a: str(a[0])),
     "to_int": Builtin("to_int", lambda a: _parse_int(a[0])),
     "repeat": Builtin("repeat", lambda a: a[0] * a[1]),
-    "join": Builtin("join", lambda a: a[0].join(mol_str(x) for x in a[1])),
+    "join": Builtin("join", lambda a: a[0].join(ulang_str(x) for x in a[1])),
 })
 
 RANDOM = Module("random", {

@@ -13,7 +13,7 @@ EXAMPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "examp
 
 
 def run():
-    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.mol")))
+    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.ul")))
     if not files:
         print("no example files found")
         return 1

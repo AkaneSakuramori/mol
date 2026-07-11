@@ -3,12 +3,12 @@ import sys
 from parser import Parser, parse, ParseError
 from lexer import tokenize, LexError
 from interpreter import Interpreter
-from builtins_mod import MolPanic
-from values import mol_str
+from builtins_mod import UlangPanic
+from values import ulang_str
 import ast_nodes as ast
 
 
-BANNER = "Mol REPL — type expressions or statements, :quit to exit"
+BANNER = "Ulang REPL — type expressions or statements, :quit to exit"
 
 
 class Repl:
@@ -68,10 +68,10 @@ def repl():
         try:
             value, is_expr = r.eval_line(line)
             if is_expr and value is not None:
-                print(mol_str(value))
+                print(ulang_str(value))
         except (LexError, ParseError) as e:
             print(f"syntax error: {e}", file=sys.stderr)
-        except MolPanic as e:
+        except UlangPanic as e:
             print(f"panic: {e.message}", file=sys.stderr)
         except Exception as e:
             print(f"error: {e}", file=sys.stderr)

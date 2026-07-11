@@ -3,10 +3,10 @@ import queue
 import time as _time
 
 import values as V
-from values import MolValue, Builtin, some, ok, err, NONE
+from values import UlangValue, Builtin, some, ok, err, NONE
 
 
-class Task(MolValue):
+class Task(UlangValue):
     __slots__ = ("result", "error", "done", "_thread", "cancelled")
 
     def __init__(self, fn, interp):
@@ -40,7 +40,7 @@ class Task(MolValue):
         return "<task>"
 
 
-class Nursery(MolValue):
+class Nursery(UlangValue):
     __slots__ = ("interp", "tasks")
 
     def __init__(self, interp):
@@ -69,7 +69,7 @@ class Nursery(MolValue):
         return "<nursery>"
 
 
-class Channel(MolValue):
+class Channel(UlangValue):
     __slots__ = ("q",)
 
     def __init__(self, capacity=0):

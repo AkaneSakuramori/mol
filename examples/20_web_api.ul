@@ -8,7 +8,7 @@ type Todo:
 derive(Serialize, Deserialize)
 
 fn list_todos(req: Request) -> Response:
-    return json([Todo(1, "ship mol", false)])
+    return json([Todo(1, "ship ulang", false)])
 
 fn create_todo(req: Request) -> Response:
     let t = req.body[Todo]?

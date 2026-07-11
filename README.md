@@ -1,6 +1,6 @@
-# Mol
+# Ulang
 
-Mol is a compiled, statically-typed programming language with type inference,
+Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
@@ -21,7 +21,7 @@ runs without a global interpreter lock, and treats errors as values.
 
 ## Example
 
-```mol
+```ulang
 type User:
     id: int
     name: str
@@ -43,7 +43,7 @@ fn main():
 Concurrency is structured: tasks live inside a `nursery` scope that does not exit until
 all of its children finish.
 
-```mol
+```ulang
 fn main():
     with nursery() as g:
         let a = g.spawn(() => fetch(1))
@@ -53,7 +53,7 @@ fn main():
 
 Channels pass values between tasks:
 
-```mol
+```ulang
 let ch = channel()
 ch.send(42)
 print(ch.recv())
@@ -63,7 +63,7 @@ print(ch.recv())
 
 `extern fn` binds a C library function and calls it directly:
 
-```mol
+```ulang
 extern fn sqrt(x: float) -> float from "m"
 
 fn main():
@@ -82,10 +82,10 @@ results:
 - **Native** — ahead-of-time compilation to a standalone executable.
 
 ```sh
-mol run   file.mol      # interpreter
-mol runvm file.mol      # bytecode VM
-mol jit   file.mol      # tiered JIT
-mol build file.mol -o a && ./a   # native
+ulang run   file.ul      # interpreter
+ulang runvm file.ul      # bytecode VM
+ulang jit   file.ul      # tiered JIT
+ulang build file.ul -o a && ./a   # native
 ```
 
 ### Benchmarks
@@ -101,12 +101,12 @@ Run them with `python3 bench/benchmark.py`.
 
 ## Self-hosting
 
-`selfhost/tokenize.mol` is a lexer for Mol **written in Mol** — it tokenizes Mol source
+`selfhost/tokenize.ul` is a lexer for Ulang **written in Ulang** — it tokenizes Ulang source
 into keywords, identifiers, integers, and operators. It demonstrates that the language
 is expressive enough to implement its own tooling.
 
 ```sh
-mol run selfhost/tokenize.mol
+ulang run selfhost/tokenize.ul
 ```
 
 ## Standard library
@@ -116,42 +116,42 @@ Modules available via `import`: `fs`, `json`, `math`, `time`, `str`, `random`, `
 ## Tooling
 
 ```sh
-mol init myapp          # scaffold a project (mol.toml + src/main.mol)
-mol fmt file.mol         # print canonical formatting
-mol fmt file.mol -w      # format in place
-mol escape file.mol      # show stack vs heap allocation analysis
+ulang init myapp          # scaffold a project (ulang.toml + src/main.ul)
+ulang fmt file.ul         # print canonical formatting
+ulang fmt file.ul -w      # format in place
+ulang escape file.ul      # show stack vs heap allocation analysis
 ```
 
 ## Getting started
 
-Mol is under active development. The toolchain builds from source and runs on
+Ulang is under active development. The toolchain builds from source and runs on
 Python 3.10+.
 
 ```sh
 # tokenize a source file
-python3 src/mol.py lex examples/01_hello.mol
+python3 src/ulang.py lex examples/01_hello.ul
 
 # parse a source file to an AST
-python3 src/mol.py parse examples/01_hello.mol
+python3 src/ulang.py parse examples/01_hello.ul
 
 # type-check a source file
-python3 src/mol.py check examples/09_result.mol
+python3 src/ulang.py check examples/09_result.ul
 
 # run with the tree-walking interpreter
-python3 src/mol.py run examples/08_enums_match.mol
+python3 src/ulang.py run examples/08_enums_match.ul
 
 # run with the bytecode virtual machine
-python3 src/mol.py runvm examples/08_enums_match.mol
+python3 src/ulang.py runvm examples/08_enums_match.ul
 
 # compile to a native executable via LLVM, then run it
-python3 src/mol.py build examples/native/fib.mol -o fib
+python3 src/ulang.py build examples/native/fib.ul -o fib
 ./fib
 
 # print the generated LLVM IR
-python3 src/mol.py emit-ir examples/native/fib.mol
+python3 src/ulang.py emit-ir examples/native/fib.ul
 
 # start the interactive REPL
-python3 src/mol.py repl
+python3 src/ulang.py repl
 
 # run the full test suite
 python3 tests/run_all.py
@@ -196,9 +196,9 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 
 ```
 spec/            language specification and formal grammar
-examples/        example .mol programs
+examples/        example .ul programs
 examples/native/ programs the native backend compiles to binaries
-selfhost/        Mol tooling written in Mol
+selfhost/        Ulang tooling written in Ulang
 src/             compiler implementation
 tests/           compiler tests
 bench/           benchmarks across execution engines
@@ -218,7 +218,7 @@ bench/           benchmarks across execution engines
 6. Bytecode compiler and virtual machine, REPL. ✅
 7. Native backend via LLVM — single static binary. ✅
 8. Runtime — structured concurrency and memory model. ✅
-9. Standard library, tooling (`mol` CLI, formatter, package manifest), and FFI. ✅
+9. Standard library, tooling (`ulang` CLI, formatter, package manifest), and FFI. ✅
 10. Tiered JIT, self-hosting tokenizer, benchmarks, and the 1.0 release. ✅
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

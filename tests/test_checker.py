@@ -19,7 +19,7 @@ NEGATIVE = [
 
 def run():
     failed = 0
-    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.mol")))
+    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.ul")))
     for path in files:
         name = os.path.basename(path)
         with open(path, "r", encoding="utf-8") as f:

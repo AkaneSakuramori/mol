@@ -6,7 +6,7 @@ venv/
 dist/
 build/
 .DS_Store
-*.molc
+*.ulc
 *.ll
 *.o
 .claude/

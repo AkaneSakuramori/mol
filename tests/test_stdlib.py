@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from parser import parse
 from interpreter import Interpreter
 from formatter import format_source
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 
 
 EXAMPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "examples")
@@ -37,7 +37,7 @@ def run():
     for i, (src, expected) in enumerate(FFI_STDLIB):
         try:
             got = run_source(src)
-        except (MolPanic, Exception) as e:
+        except (UlangPanic, Exception) as e:
             print(f"FAIL stdlib/ffi {i}: {e}")
             failed += 1
             continue
@@ -48,7 +48,7 @@ def run():
             failed += 1
 
     fmt_fail = 0
-    for path in sorted(glob.glob(os.path.join(EXAMPLES, "*.mol"))):
+    for path in sorted(glob.glob(os.path.join(EXAMPLES, "*.ul"))):
         src = open(path).read()
         try:
             once = format_source(src)

@@ -3,5 +3,5 @@ fn main():
     let (x, y) = point
     print(x + y)
 
-    let pair = ("mol", 1)
+    let pair = ("ulang", 1)
     print(pair)

@@ -1,9 +1,10 @@
 import ast_nodes as ast
 import values as V
-from values import Struct, Variant, Closure, Builtin, BoundMethod, some, ok, err, NONE, mol_str
-from builtins_mod import BUILTINS, get_method, MolPanic
+from values import Struct, Variant, Closure, Builtin, BoundMethod, some, ok, err, NONE, ulang_str
+from builtins_mod import BUILTINS, get_method, UlangPanic
 import stdlib
 import runtime
+import operations
 
 
 class Environment:
@@ -19,7 +20,7 @@ class Environment:
             if name in env.vars:
                 return env.vars[name]
             env = env.parent
-        raise MolPanic(f"undefined name '{name}'")
+        raise UlangPanic(f"undefined name '{name}'")
 
     def set(self, name, value):
         self.vars[name] = value
@@ -31,7 +32,7 @@ class Environment:
                 env.vars[name] = value
                 return
             env = env.parent
-        raise MolPanic(f"assignment to undefined '{name}'")
+        raise UlangPanic(f"assignment to undefined '{name}'")
 
 
 class ReturnSignal(Exception):
@@ -60,16 +61,28 @@ class Interpreter:
         self.traits = {}
         self.impls = {}
         self.functions = {}
+        self.depth = 0
+        self.max_depth = 2500
         for name, val in BUILTINS.items():
             self.globals.set(name, val)
         runtime.install(self)
 
     def run(self, module):
+        import sys as _sys
+        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
+        self.cur_line = 0
         self.collect(module)
         main = self.functions.get("main")
         if main is None:
-            raise MolPanic("no main function")
-        return self.call(main, [])
+            raise UlangPanic("no main function")
+        try:
+            return self.call(main, [])
+        except UlangPanic as e:
+            if getattr(e, "line", 0) == 0 and self.cur_line:
+                e.line = self.cur_line
+                e.message = f"{e.message} (line {self.cur_line})"
+                e.args = (e.message,)
+            raise
 
     def collect(self, module):
         for decl in module.body:
@@ -100,7 +113,7 @@ class Interpreter:
         try:
             self.globals.set(decl.name, ffi.make_extern(decl))
         except (OSError, AttributeError) as e:
-            raise MolPanic(f"extern '{decl.name}': {e}")
+            raise UlangPanic(f"extern '{decl.name}': {e}")
 
     def exec_import(self, decl):
         name = decl.path[-1]
@@ -131,7 +144,7 @@ class Interpreter:
 
         def ctor(args):
             if len(args) != len(field_names):
-                raise MolPanic(f"{decl.name}: expected {len(field_names)} fields, got {len(args)}")
+                raise UlangPanic(f"{decl.name}: expected {len(field_names)} fields, got {len(args)}")
             return Struct(decl.name, dict(zip(field_names, args)))
 
         return Builtin(decl.name, ctor)
@@ -154,18 +167,30 @@ class Interpreter:
             return self.call(fn.fn, [fn.receiver] + args)
         if isinstance(fn, Closure):
             return self.call_closure(fn, args)
-        raise MolPanic(f"not callable: {fn!r}")
+        raise UlangPanic(f"not callable: {fn!r}")
 
     def call_closure(self, closure, args):
+        self.depth = getattr(self, "depth", 0) + 1
+        if self.depth > self.max_depth:
+            self.depth -= 1
+            raise UlangPanic(f"stack overflow: recursion exceeded {self.max_depth} frames")
+        try:
+            return self._call_closure_inner(closure, args)
+        finally:
+            self.depth -= 1
+
+    def _call_closure_inner(self, closure, args):
         env = Environment(closure.env)
         params = closure.params
+        if len(args) > len(params):
+            raise UlangPanic(f"{closure.name}: expected {len(params)} argument(s), got {len(args)}")
         for i, param in enumerate(params):
             if i < len(args):
                 env.set(param.name, args[i])
             elif param.default is not None:
                 env.set(param.name, self.eval(param.default, env))
             else:
-                raise MolPanic(f"{closure.name}: missing argument '{param.name}'")
+                raise UlangPanic(f"{closure.name}: missing argument '{param.name}'")
         deferred = []
         env.set("__defer__", deferred)
         try:
@@ -193,6 +218,9 @@ class Interpreter:
         return result
 
     def exec(self, node, env):
+        line = getattr(node, "line", 0)
+        if line:
+            self.cur_line = line
         method = getattr(self, "exec_" + type(node).__name__, None)
         if method is None:
             return self.eval(node, env)
@@ -224,7 +252,7 @@ class Interpreter:
             if isinstance(obj, Struct):
                 obj.fields[target.name] = value
             else:
-                raise MolPanic("cannot assign attribute")
+                raise UlangPanic("cannot assign attribute")
         return None
 
     def exec_Return(self, node, env):
@@ -302,7 +330,7 @@ class Interpreter:
                 if isinstance(arm.body, list):
                     return self.exec_block(arm.body, arm_env)
                 return self.eval(arm.body, arm_env)
-        raise MolPanic("no match arm matched")
+        raise UlangPanic("no match arm matched")
 
     def exec_ExprStmt(self, node, env):
         return self.eval(node.expr, env)
@@ -312,11 +340,11 @@ class Interpreter:
             return value
         if isinstance(value, dict):
             return list(value.keys())
-        raise MolPanic(f"not iterable: {type(value).__name__}")
+        raise UlangPanic(f"not iterable: {type(value).__name__}")
 
     def bind_pattern(self, pattern, value, env):
         if not self.match_pattern(pattern, value, env):
-            raise MolPanic("pattern binding failed")
+            raise UlangPanic("pattern binding failed")
 
     def match_pattern(self, pattern, value, env):
         if isinstance(pattern, ast.WildcardPattern):
@@ -342,12 +370,12 @@ class Interpreter:
                 if not self.match_pattern(sub, val, env):
                     return False
             return True
-        raise MolPanic(f"unknown pattern {type(pattern).__name__}")
+        raise UlangPanic(f"unknown pattern {type(pattern).__name__}")
 
     def eval(self, node, env):
         method = getattr(self, "eval_" + type(node).__name__, None)
         if method is None:
-            raise MolPanic(f"cannot evaluate {type(node).__name__}")
+            raise UlangPanic(f"cannot evaluate {type(node).__name__}")
         return method(node, env)
 
     def eval_Int(self, node, env):
@@ -368,7 +396,7 @@ class Interpreter:
             if kind == "str":
                 out.append(value)
             else:
-                out.append(mol_str(self.eval(value, env)))
+                out.append(ulang_str(self.eval(value, env)))
         return "".join(out)
 
     def eval_Name(self, node, env):
@@ -407,33 +435,13 @@ class Interpreter:
         return self.apply_binop(node.op, left, right)
 
     def apply_binop(self, op, left, right):
-        if op == "+":
-            return left + right
-        if op == "-":
-            return left - right
-        if op == "*":
-            return left * right
-        if op == "/":
-            if isinstance(left, int) and isinstance(right, int):
-                if right == 0:
-                    raise MolPanic("division by zero")
-                return left // right
-            return left / right
-        if op == "%":
-            return left % right
-        if op == "==":
-            return left == right
-        if op == "!=":
-            return left != right
-        if op == "<":
-            return left < right
-        if op == "<=":
-            return left <= right
-        if op == ">":
-            return left > right
-        if op == ">=":
-            return left >= right
-        raise MolPanic(f"unknown operator {op}")
+        return operations.binop(op, left, right)
+
+    def _both_numbers(self, left, right):
+        return operations.both_numbers(left, right)
+
+    def type_label(self, value):
+        return operations.type_label(value)
 
     def eval_UnaryOp(self, node, env):
         operand = self.eval(node.operand, env)
@@ -441,7 +449,7 @@ class Interpreter:
             return -operand
         if node.op == "not":
             return not self.truthy(operand)
-        raise MolPanic(f"unknown unary {node.op}")
+        raise UlangPanic(f"unknown unary {node.op}")
 
     def eval_Call(self, node, env):
         func = self.eval(node.func, env)
@@ -453,11 +461,7 @@ class Interpreter:
     def eval_Index(self, node, env):
         target = self.eval(node.target, env)
         index = self.eval(node.index, env)
-        if isinstance(target, dict):
-            if index not in target:
-                raise MolPanic(f"key not found: {index!r}")
-            return target[index]
-        return target[index]
+        return operations.index(target, index)
 
     def eval_Attribute(self, node, env):
         obj = self.eval(node.target, env)
@@ -466,7 +470,7 @@ class Interpreter:
         if isinstance(obj, V.Module):
             if node.name in obj.members:
                 return obj.members[node.name]
-            raise MolPanic(f"module '{obj.name}' has no member '{node.name}'")
+            raise UlangPanic(f"module '{obj.name}' has no member '{node.name}'")
         if isinstance(obj, stdlib._FileValue):
             method = obj.method(node.name)
             if method is not None:
@@ -480,7 +484,7 @@ class Interpreter:
         method = get_method(obj, node.name, self)
         if method is not None:
             return method
-        raise MolPanic(f"no attribute '{node.name}'")
+        raise UlangPanic(f"no attribute '{node.name}'")
 
     def eval_Try(self, node, env):
         value = self.eval(node.expr, env)

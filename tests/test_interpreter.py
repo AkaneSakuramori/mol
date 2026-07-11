@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from parser import parse
 from interpreter import Interpreter
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 import io
 import contextlib
 
@@ -42,7 +42,7 @@ def run():
     for i, (src, expected) in enumerate(CASES):
         try:
             got = run_source(src)
-        except (MolPanic, Exception) as e:
+        except (UlangPanic, Exception) as e:
             print(f"FAIL case {i}: raised {e}")
             failed += 1
             continue

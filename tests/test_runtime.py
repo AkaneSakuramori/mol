@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from parser import parse
 from interpreter import Interpreter
 from escape import analyze
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 
 
 EXAMPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "examples")
@@ -22,8 +22,8 @@ def run_source(src):
 
 
 CONCURRENCY = [
-    (open(os.path.join(EXAMPLES, "21_concurrency.mol")).read(), "110"),
-    (open(os.path.join(EXAMPLES, "22_channels.mol")).read(), "60"),
+    (open(os.path.join(EXAMPLES, "21_concurrency.ul")).read(), "110"),
+    (open(os.path.join(EXAMPLES, "22_channels.ul")).read(), "60"),
     ("fn work(n: int) -> int:\n    return n + 1\nfn main():\n    let t = spawn(() => work(41))\n    print(t.await())\n", "42"),
     ("fn main():\n    let ch = channel()\n    ch.send(7)\n    print(ch.recv())\n", "7"),
 ]
@@ -41,7 +41,7 @@ def run():
     for i, (src, expected) in enumerate(CONCURRENCY):
         try:
             got = run_source(src)
-        except (MolPanic, Exception) as e:
+        except (UlangPanic, Exception) as e:
             print(f"FAIL concurrency {i}: {e}")
             failed += 1
             continue

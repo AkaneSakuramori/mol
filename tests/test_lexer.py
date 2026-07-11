@@ -22,7 +22,7 @@ def check_balanced(tokens):
 
 
 def run():
-    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.mol")))
+    files = sorted(glob.glob(os.path.join(EXAMPLES, "*.ul")))
     if not files:
         print("no example files found")
         return 1

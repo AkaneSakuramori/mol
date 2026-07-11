@@ -1,8 +1,8 @@
-class MolValue:
+class UlangValue:
     pass
 
 
-class Struct(MolValue):
+class Struct(UlangValue):
     __slots__ = ("type_name", "fields")
 
     def __init__(self, type_name, fields):
@@ -17,11 +17,11 @@ class Struct(MolValue):
         )
 
     def __repr__(self):
-        inner = ", ".join(f"{k}={mol_repr(v)}" for k, v in self.fields.items())
+        inner = ", ".join(f"{k}={ulang_repr(v)}" for k, v in self.fields.items())
         return f"{self.type_name}({inner})"
 
 
-class Variant(MolValue):
+class Variant(UlangValue):
     __slots__ = ("enum_name", "name", "values")
 
     def __init__(self, enum_name, name, values):
@@ -40,11 +40,11 @@ class Variant(MolValue):
     def __repr__(self):
         if not self.values:
             return self.name
-        inner = ", ".join(mol_repr(v) for v in self.values)
+        inner = ", ".join(ulang_repr(v) for v in self.values)
         return f"{self.name}({inner})"
 
 
-class Closure(MolValue):
+class Closure(UlangValue):
     __slots__ = ("params", "body", "env", "name")
 
     def __init__(self, params, body, env, name="<lambda>"):
@@ -57,7 +57,7 @@ class Closure(MolValue):
         return f"<fn {self.name}>"
 
 
-class Builtin(MolValue):
+class Builtin(UlangValue):
     __slots__ = ("name", "fn")
 
     def __init__(self, name, fn):
@@ -68,7 +68,7 @@ class Builtin(MolValue):
         return f"<builtin {self.name}>"
 
 
-class BoundMethod(MolValue):
+class BoundMethod(UlangValue):
     __slots__ = ("receiver", "fn", "name")
 
     def __init__(self, receiver, fn, name):
@@ -80,7 +80,7 @@ class BoundMethod(MolValue):
         return f"<method {self.name}>"
 
 
-class Module(MolValue):
+class Module(UlangValue):
     __slots__ = ("name", "members")
 
     def __init__(self, name, members):
@@ -114,7 +114,7 @@ def is_err(value):
     return isinstance(value, Variant) and value.enum_name == "Result" and value.name == "Err"
 
 
-def mol_repr(value):
+def ulang_repr(value):
     if value is None:
         return "none"
     if isinstance(value, bool):
@@ -122,15 +122,15 @@ def mol_repr(value):
     if isinstance(value, str):
         return '"' + value + '"'
     if isinstance(value, list):
-        return "[" + ", ".join(mol_repr(v) for v in value) + "]"
+        return "[" + ", ".join(ulang_repr(v) for v in value) + "]"
     if isinstance(value, tuple):
-        return "(" + ", ".join(mol_repr(v) for v in value) + ")"
+        return "(" + ", ".join(ulang_repr(v) for v in value) + ")"
     if isinstance(value, dict):
-        return "{" + ", ".join(f"{mol_repr(k)}: {mol_repr(v)}" for k, v in value.items()) + "}"
+        return "{" + ", ".join(f"{ulang_repr(k)}: {ulang_repr(v)}" for k, v in value.items()) + "}"
     return repr(value)
 
 
-def mol_str(value):
+def ulang_str(value):
     if value is None:
         return "none"
     if isinstance(value, bool):
@@ -142,23 +142,23 @@ def mol_str(value):
             return f"{value:.1f}"
         return repr(value)
     if isinstance(value, list):
-        return "[" + ", ".join(mol_str_inner(v) for v in value) + "]"
+        return "[" + ", ".join(ulang_str_inner(v) for v in value) + "]"
     if isinstance(value, tuple):
-        return "(" + ", ".join(mol_str_inner(v) for v in value) + ")"
+        return "(" + ", ".join(ulang_str_inner(v) for v in value) + ")"
     if isinstance(value, dict):
-        return "{" + ", ".join(f"{mol_str_inner(k)}: {mol_str_inner(v)}" for k, v in value.items()) + "}"
+        return "{" + ", ".join(f"{ulang_str_inner(k)}: {ulang_str_inner(v)}" for k, v in value.items()) + "}"
     if isinstance(value, Struct):
-        inner = ", ".join(f"{k}: {mol_str_inner(v)}" for k, v in value.fields.items())
+        inner = ", ".join(f"{k}: {ulang_str_inner(v)}" for k, v in value.fields.items())
         return f"{value.type_name}({inner})"
     if isinstance(value, Variant):
         if not value.values:
             return value.name
-        inner = ", ".join(mol_str_inner(v) for v in value.values)
+        inner = ", ".join(ulang_str_inner(v) for v in value.values)
         return f"{value.name}({inner})"
     return str(value)
 
 
-def mol_str_inner(value):
+def ulang_str_inner(value):
     if isinstance(value, str):
         return '"' + value + '"'
-    return mol_str(value)
+    return ulang_str(value)

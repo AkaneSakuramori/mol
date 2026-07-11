@@ -9,7 +9,7 @@ from interpreter import Interpreter
 from checker import check as type_check
 from compiler import compile_module
 from vm import VM
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 import ast_nodes as ast
 
 VERSION = "1.0.0"
@@ -69,7 +69,7 @@ def cmd_run(path):
         return 1
     try:
         Interpreter().run(tree)
-    except MolPanic as e:
+    except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
     return 0
@@ -102,7 +102,7 @@ def cmd_runvm(path):
         return 1
     try:
         VM(compile_module(tree)).run()
-    except MolPanic as e:
+    except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
     return 0
@@ -195,14 +195,14 @@ version = "0.1.0"
 
 [dependencies]
 """
-    with open("mol.toml", "w", encoding="utf-8") as f:
+    with open("ulang.toml", "w", encoding="utf-8") as f:
         f.write(manifest)
     os.makedirs("src", exist_ok=True)
-    main_path = os.path.join("src", "main.mol")
+    main_path = os.path.join("src", "main.ul")
     if not os.path.exists(main_path):
         with open(main_path, "w", encoding="utf-8") as f:
             f.write('fn main():\n    print("hello from ' + name + '")\n')
-    print(f"created mol.toml and src/main.mol for '{name}'")
+    print(f"created ulang.toml and src/main.ul for '{name}'")
     return 0
 
 
@@ -218,7 +218,7 @@ def cmd_jit(path):
     interp = JITInterpreter(threshold=1)
     try:
         interp.run(tree)
-    except MolPanic as e:
+    except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
     stats = interp.jit_stats
@@ -230,11 +230,11 @@ def cmd_jit(path):
 
 def main(argv):
     if len(argv) < 2:
-        print("usage: mol <lex|parse|check|run|runvm|jit|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
+        print("usage: ulang <lex|parse|check|run|runvm|jit|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
         return 2
     command = argv[1]
     if command in ("version", "--version", "-v"):
-        print(f"mol {VERSION}")
+        print(f"ulang {VERSION}")
         return 0
     if command == "repl":
         from repl import repl
@@ -243,7 +243,7 @@ def main(argv):
         name = argv[2] if len(argv) > 2 else "app"
         return cmd_init(name)
     if len(argv) < 3:
-        print(f"usage: mol {command} <file.mol>", file=sys.stderr)
+        print(f"usage: ulang {command} <file.ul>", file=sys.stderr)
         return 2
     if command == "lex":
         return cmd_lex(argv[2])

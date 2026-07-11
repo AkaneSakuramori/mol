@@ -1,4 +1,4 @@
 fn main():
-    let name = "Mol"
+    let name = "Ulang"
     let version = 0
     print("welcome to ${name} v${version}")

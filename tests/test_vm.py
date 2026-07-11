@@ -9,7 +9,7 @@ from parser import parse
 from interpreter import Interpreter
 from compiler import compile_module
 from vm import VM
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 
 
 PURE = [
@@ -32,14 +32,14 @@ def capture(fn):
 def run():
     failed = 0
     for name in PURE:
-        path = os.path.join(EXAMPLES, name + ".mol")
+        path = os.path.join(EXAMPLES, name + ".ul")
         with open(path, "r", encoding="utf-8") as f:
             source = f.read()
         tree = parse(source)
         try:
             interp_out = capture(lambda: Interpreter().run(parse(source)))
             vm_out = capture(lambda: VM(compile_module(parse(source))).run())
-        except MolPanic as e:
+        except UlangPanic as e:
             print(f"FAIL {name}: {e}")
             failed += 1
             continue

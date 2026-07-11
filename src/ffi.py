@@ -3,7 +3,7 @@ import ctypes.util
 
 import values as V
 from values import Builtin
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 
 
 _CTYPES = {

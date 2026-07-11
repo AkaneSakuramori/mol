@@ -1,15 +1,16 @@
 import values as V
-from values import Struct, Variant, Builtin, some, ok, err, NONE, mol_str, mol_repr
+from values import Struct, Variant, Builtin, some, ok, err, NONE, ulang_str, ulang_repr
 
 
-class MolPanic(Exception):
+class UlangPanic(Exception):
     def __init__(self, message):
         super().__init__(message)
         self.message = message
+        self.line = 0
 
 
 def _print(args):
-    print(" ".join(mol_str(a) for a in args))
+    print(" ".join(ulang_str(a) for a in args))
     return None
 
 
@@ -17,7 +18,7 @@ def _len(args):
     obj = args[0]
     if isinstance(obj, (str, list, dict, tuple)):
         return len(obj)
-    raise MolPanic(f"len: unsupported type {type(obj).__name__}")
+    raise UlangPanic(f"len: unsupported type {type(obj).__name__}")
 
 
 def _range(args):
@@ -29,7 +30,7 @@ def _range(args):
 
 
 def _panic(args):
-    raise MolPanic(mol_str(args[0]) if args else "panic")
+    raise UlangPanic(ulang_str(args[0]) if args else "panic")
 
 
 def _int(args):
@@ -41,7 +42,7 @@ def _float(args):
 
 
 def _str(args):
-    return mol_str(args[0])
+    return ulang_str(args[0])
 
 
 def _bool(args):
@@ -144,7 +145,7 @@ def _list_method(obj, name, interp):
     if name == "last":
         return Builtin("last", lambda a: some(obj[-1]) if obj else NONE)
     if name == "join":
-        return Builtin("join", lambda a: a[0].join(mol_str(x) for x in obj))
+        return Builtin("join", lambda a: a[0].join(ulang_str(x) for x in obj))
     return None
 
 
@@ -206,7 +207,7 @@ def _dict_method(obj, name):
 
 def _num_method(obj, name):
     if name == "to_str":
-        return Builtin("to_str", lambda a: mol_str(obj))
+        return Builtin("to_str", lambda a: ulang_str(obj))
     if name == "abs":
         return Builtin("abs", lambda a: abs(obj))
     return None
@@ -231,7 +232,7 @@ def _variant_method(obj, name):
 def _unwrap(obj):
     if obj.name in ("Some", "Ok"):
         return obj.values[0]
-    raise MolPanic(f"unwrap on {obj.name}")
+    raise UlangPanic(f"unwrap on {obj.name}")
 
 
 def _truthy(v):

@@ -10,6 +10,44 @@ class ParseError(Exception):
         self.token = token
 
 
+_FRIENDLY = {
+    T.COLON: "':'",
+    T.RPAREN: "')'",
+    T.LPAREN: "'('",
+    T.RBRACKET: "']'",
+    T.LBRACKET: "'['",
+    T.RBRACE: "'}'",
+    T.LBRACE: "'{'",
+    T.COMMA: "','",
+    T.ARROW: "'->'",
+    T.FAT_ARROW: "'=>'",
+    T.EQ: "'='",
+    T.IDENT: "a name",
+    T.INT: "a number",
+    T.STRING: "a string",
+    T.NEWLINE: "end of line",
+    T.INDENT: "an indented block",
+    T.DEDENT: "a dedent",
+    T.EOF: "end of file",
+}
+
+
+def _friendly(type):
+    return _FRIENDLY.get(type, type.name)
+
+
+def _show(token):
+    if token.type == T.NEWLINE:
+        return "end of line"
+    if token.type == T.EOF:
+        return "end of file"
+    if token.type == T.INDENT:
+        return "an indented block"
+    if token.type == T.DEDENT:
+        return "a dedent"
+    return f"'{token.value}'"
+
+
 ASSIGN_OPS = {
     T.EQ: "=",
     T.PLUS_EQ: "+=",
@@ -66,13 +104,13 @@ class Parser:
 
     def expect(self, type, value=None):
         if not self.at(type, value):
-            want = value if value is not None else type.name
-            self.error(f"expected {want}, got {self.current.value!r}")
+            want = value if value is not None else _friendly(type)
+            self.error(f"expected {want}, but found {_show(self.current)}")
         return self.advance()
 
     def expect_keyword(self, word):
         if not self.at_keyword(word):
-            self.error(f"expected '{word}', got {self.current.value!r}")
+            self.error(f"expected '{word}', but found {_show(self.current)}")
         return self.advance()
 
     def skip_newlines(self):

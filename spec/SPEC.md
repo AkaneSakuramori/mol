@@ -1,17 +1,17 @@
-# Mol Language Specification — v1.0
+# Ulang Language Specification — v1.0
 
 Status: stable for the 1.0 release. This is the contract the compiler is built against.
 
 ## 1. Overview
 
-Mol is a compiled, statically-typed language with type inference and a layout-based,
+Ulang is a compiled, statically-typed language with type inference and a layout-based,
 readable syntax. It targets native code for high performance and ships an interpreter/VM
 for development and scripting. This document defines the v0 surface language: lexical
 structure, types, declarations, statements, and semantics.
 
 ## 2. Lexical Structure
 
-- Source is UTF-8. Files use the `.mol` extension.
+- Source is UTF-8. Files use the `.ul` extension.
 - Layout is significant. Indentation opens and closes blocks. The lexer emits
   `INDENT`, `DEDENT`, and `NEWLINE` tokens. Indentation is spaces; a block's indent must
   be consistent.

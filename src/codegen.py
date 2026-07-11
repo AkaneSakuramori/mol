@@ -43,7 +43,7 @@ def native_type(node):
 
 
 class ModuleGen:
-    def __init__(self, name="mol", emit_entry=True):
+    def __init__(self, name="ulang", emit_entry=True):
         self.module = ir.Module(name=name)
         self.module.triple = ""
         self.functions = {}
@@ -107,7 +107,7 @@ class ModuleGen:
         params = [native_type(p.type) for p in decl.params]
         llret = TypeInfo.llvm(ret) if decl.name != "main" else I64
         fnty = ir.FunctionType(llret, [TypeInfo.llvm(p) for p in params])
-        name = "mol_main" if decl.name == "main" else decl.name
+        name = "ulang_main" if decl.name == "main" else decl.name
         fn = ir.Function(self.module, fnty, name=name)
         self.functions[decl.name] = fn
         self.signatures[decl.name] = (ret, params)

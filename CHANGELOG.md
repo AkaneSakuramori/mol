@@ -23,12 +23,12 @@ with development engines for fast iteration.
 - Tiered JIT that compiles hot functions to native code at runtime.
 - Escape analysis for stack vs heap allocation.
 - Standard library: `fs`, `json`, `math`, `time`, `str`, `random`, `list`.
-- Formatter (`mol fmt`) and project scaffolding (`mol init`).
+- Formatter (`ulang fmt`) and project scaffolding (`ulang init`).
 
 ### Verified
 - 9 test suites covering every stage.
 - Native and JIT output verified identical to the interpreter.
 - Bytecode VM output verified identical to the interpreter.
-- Self-hosting: a Mol tokenizer tokenizes Mol source.
+- Self-hosting: a Ulang tokenizer tokenizes Ulang source.
 - Benchmarks: JIT ~1700x over the interpreter on recursive workloads;
   native in the millisecond range.

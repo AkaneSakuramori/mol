@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from parser import parse
 from interpreter import Interpreter
 from tiered import JITInterpreter
-from builtins_mod import MolPanic
+from builtins_mod import UlangPanic
 
 
 SELFHOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "selfhost")
@@ -66,18 +66,18 @@ def run():
             print(f"FAIL jit {i}: interp={interp_out!r} jit={jit_out!r}")
             failed += 1
 
-    path = os.path.join(SELFHOST, "tokenize.mol")
+    path = os.path.join(SELFHOST, "tokenize.ul")
     with open(path) as f:
         src = f.read()
     try:
         out = capture(lambda: Interpreter().run(parse(src)))
         lines = out.splitlines()
         if lines and lines[0] == "KEYWORD:fn" and lines[-1] == "count: 12":
-            print("ok   selfhost: Mol tokenizer tokenizes Mol source correctly")
+            print("ok   selfhost: Ulang tokenizer tokenizes Ulang source correctly")
         else:
             print(f"FAIL selfhost: unexpected output {lines[:2]}...{lines[-1:]}")
             failed += 1
-    except (MolPanic, Exception) as e:
+    except (UlangPanic, Exception) as e:
         print(f"FAIL selfhost: {e}")
         failed += 1
 
