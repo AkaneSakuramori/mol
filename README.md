@@ -1,6 +1,6 @@
 # Ulang
 
-[![CI](https://github.com/AkaneSakuramori/mol/actions/workflows/ci.yml/badge.svg)](https://github.com/AkaneSakuramori/mol/actions/workflows/ci.yml)
+[![CI](https://github.com/AkaneSakuramori/ulang/actions/workflows/ci.yml/badge.svg)](https://github.com/AkaneSakuramori/ulang/actions/workflows/ci.yml)
 
 Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,

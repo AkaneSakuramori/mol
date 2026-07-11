@@ -15,8 +15,8 @@ pip install llvmlite
 ## Get the code
 
 ```sh
-git clone https://github.com/AkaneSakuramori/mol.git
-cd mol
+git clone https://github.com/AkaneSakuramori/ulang.git
+cd ulang
 ```
 
 The command-line tool is `src/ulang.py`. For convenience you can alias it:

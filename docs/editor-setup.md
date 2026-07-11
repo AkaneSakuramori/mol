@@ -43,7 +43,7 @@ A ready-to-use extension is in [`editors/vscode`](../editors/vscode).
    set the absolute path to `src/ulang.py`:
 
    ```json
-   "ulang.serverCommand": ["python3", "/absolute/path/to/mol/src/ulang.py", "lsp"]
+   "ulang.serverCommand": ["python3", "/absolute/path/to/ulang/src/ulang.py", "lsp"]
    ```
 
 3. Press F5 in the extension folder to launch an Extension Development Host, then open a
@@ -65,7 +65,7 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function(args)
     vim.lsp.start({
       name = "ulang",
-      cmd = { "python3", "/absolute/path/to/mol/src/ulang.py", "lsp" },
+      cmd = { "python3", "/absolute/path/to/ulang/src/ulang.py", "lsp" },
       root_dir = vim.fs.dirname(vim.fs.find({ "ulang.toml", ".git" }, { upward = true })[1]),
     })
   end,
@@ -79,7 +79,7 @@ files, with diagnostics shown inline.
 
 Any editor with an LSP client works. Configure it to:
 
-- Launch `python3 /path/to/mol/src/ulang.py lsp`.
+- Launch `python3 /path/to/ulang/src/ulang.py lsp`.
 - Associate the `.ul` extension with a language id of `ulang`.
 - Use stdio transport.
 
