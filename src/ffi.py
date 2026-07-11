@@ -22,14 +22,20 @@ def _ctype_for(type_node):
 
 
 def load_library(name):
-    if name is None or name in ("c", "libc"):
-        path = ctypes.util.find_library("c") or "libc.so.6"
-        return ctypes.CDLL(path)
-    if name in ("m", "libm", "math"):
-        path = ctypes.util.find_library("m") or "libm.so.6"
-        return ctypes.CDLL(path)
-    found = ctypes.util.find_library(name)
-    return ctypes.CDLL(found or name)
+    import platform_abi
+    if name is None:
+        name = "c"
+    candidates = platform_abi.HOST.library_candidates(name)
+    resolved = ctypes.util.find_library(name)
+    if resolved:
+        candidates = [resolved] + candidates
+    last_error = None
+    for candidate in candidates:
+        try:
+            return ctypes.CDLL(candidate)
+        except OSError as e:
+            last_error = e
+    raise OSError(f"could not load library '{name}': {last_error}")
 
 
 def make_extern(decl):

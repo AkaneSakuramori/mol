@@ -12,7 +12,7 @@ from vm import VM
 from builtins_mod import UlangPanic
 import ast_nodes as ast
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 
 
 def _optimize(tree):
@@ -228,7 +228,7 @@ def cmd_fmt(path, write=False):
         print(f"error: {path}: {e}", file=sys.stderr)
         return 1
     if write:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(formatted)
         print(f"formatted {path}")
     else:
@@ -320,6 +320,41 @@ def cmd_list(path):
     return 0
 
 
+def cmd_platform():
+    import platform_abi
+    host = platform_abi.HOST
+    info = host.as_dict()
+    print("ulang platform:")
+    for key in ("os", "arch", "exe_ext", "dll_ext", "obj_ext", "path_sep", "line_sep"):
+        print(f"  {key}: {info[key]!r}" if key == "exe_ext" else f"  {key}: {info[key]}")
+    return 0
+
+
+def cmd_doctor():
+    import platform_abi
+    host = platform_abi.HOST
+    ok = True
+    print(f"ulang {VERSION}")
+    print(f"platform: {host.os}/{host.arch}")
+
+    py = sys.version_info
+    py_ok = py >= (3, 10)
+    print(f"[{'ok' if py_ok else '!!'}] python {py.major}.{py.minor}")
+    ok = ok and py_ok
+
+    cc = platform_abi.find_c_compiler(host)
+    print(f"[{'ok' if cc else '--'}] C compiler: {cc or 'not found (needed for ulang build)'}")
+
+    try:
+        import llvmlite  # noqa: F401
+        print("[ok] llvmlite (native backend available)")
+    except ImportError:
+        print("[--] llvmlite not installed (needed for ulang build/jit)")
+
+    print("interpreter and VM: available on all platforms")
+    return 0 if ok else 1
+
+
 def cmd_init(name):
     manifest = f"""[package]
 name = "{name}"
@@ -389,6 +424,10 @@ def main(argv):
     if command == "repl":
         from repl import repl
         return repl()
+    if command == "platform":
+        return cmd_platform()
+    if command == "doctor":
+        return cmd_doctor()
     if command == "lsp":
         from lsp import main as lsp_main
         return lsp_main()

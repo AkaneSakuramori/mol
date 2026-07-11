@@ -8,10 +8,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +29,44 @@ jobs:
           python -m pip install --upgrade pip
           pip install llvmlite
 
-      - name: Ensure C toolchain
-        run: gcc --version
+      - name: Report platform
+        run: python src/ulang.py doctor
 
       - name: Run test suite
-        run: python3 tests/run_all.py
+        run: python tests/run_all.py
 
-      - name: Build a native binary
+  native-build:
+    name: native build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
         run: |
-          python3 src/ulang.py build examples/native/fib.ul -o /tmp/fib
-          /tmp/fib
+          python -m pip install --upgrade pip
+          pip install llvmlite
+
+      - name: Set up C compiler (Windows)
+        if: runner.os == 'Windows'
+        run: choco install mingw -y
+
+      - name: Build and run a native binary
+        run: python src/ulang.py build examples/native/fib.ul -o build_fib
+        shell: bash
+
+      - name: Execute the binary (Unix)
+        if: runner.os != 'Windows'
+        run: ./build_fib
+
+      - name: Execute the binary (Windows)
+        if: runner.os == 'Windows'
+        run: ./build_fib.exe

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.6.0
+
+### Added
+- Cross-platform support for Linux, macOS, and Windows (x86-64 and ARM64) with identical
+  language semantics on every platform and execution engine.
+  - `src/platform_abi.py`: central abstraction for executable/shared-library naming,
+    FFI library resolution, relocation model, and C-compiler discovery (`ULANG_CC`).
+  - `ulang build` now discovers a C compiler automatically, applies the platform's
+    executable suffix, and links the portable GC runtime on every OS.
+  - `platform` standard-library module (`os`, `arch`, `exe_ext`, `path_sep`, `line_sep`,
+    `is_linux`/`is_macos`/`is_windows`).
+  - `ulang platform` and `ulang doctor` commands.
+  - Portable installer (`install.py`) producing a launcher for Unix or Windows.
+  - Cross-platform CI matrix (Linux/macOS/Windows, Python 3.10 and 3.12) that also builds
+    and runs a native binary on each OS.
+  - Cross-platform guide (`docs/cross-platform.md`).
+
+### Fixed
+- The lexer now accepts Windows (`\r\n`) and classic-Mac (`\r`) line endings, producing
+  identical tokens and output to Unix (`\n`). The formatter always writes `\n`.
+- FFI library resolution is portable instead of assuming Linux `.so` names.
+
 ## 1.5.0
 
 ### Added

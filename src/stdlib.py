@@ -158,6 +158,21 @@ def _parse_int(s):
         return err(f"invalid int: {s}")
 
 
+def _platform_module():
+    import platform_abi
+    host = platform_abi.HOST
+    return Module("platform", {
+        "os": host.os,
+        "arch": host.arch,
+        "exe_ext": host.exe_ext,
+        "path_sep": host.path_sep,
+        "line_sep": host.line_sep,
+        "is_windows": Builtin("is_windows", lambda a: host.os == platform_abi.WINDOWS),
+        "is_macos": Builtin("is_macos", lambda a: host.os == platform_abi.MACOS),
+        "is_linux": Builtin("is_linux", lambda a: host.os == platform_abi.LINUX),
+    })
+
+
 MODULES = {
     "fs": FS,
     "json": JSON,
@@ -170,4 +185,6 @@ MODULES = {
 
 
 def get_module(name):
+    if name == "platform":
+        return _platform_module()
     return MODULES.get(name)

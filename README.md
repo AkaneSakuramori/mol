@@ -6,7 +6,7 @@ Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **1.5.0** — optimizing compiler, garbage collector, package manager, LSP, and self-hosting in progress.
+> Status: **1.6.0** — cross-platform (Linux/macOS/Windows), optimizing compiler, garbage collector, package manager, LSP, and self-hosting in progress.
 
 ## Features
 
@@ -22,6 +22,7 @@ runs without a global interpreter lock, and treats errors as values.
 - Editor support via a built-in Language Server (`ulang lsp`).
 - Package manager with reproducible builds and verified downloads (`ulang install`).
 - Generational tracing garbage collector across the interpreter, VM, and native runtime.
+- Cross-platform: identical semantics on Linux, macOS, and Windows (x86-64 and ARM64).
 - Tooling: formatter, project scaffolding, and a standard library.
 
 ## Example
@@ -218,6 +219,7 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 - `src/compiler.py`, `src/bytecode.py`, `src/vm.py` — bytecode compiler and stack VM.
 - `src/optimizer.py`, `src/peephole.py` — AST optimizations and bytecode peephole.
 - `src/gc_heap.py`, `src/memory.py` — generational tracing garbage collector.
+- `src/platform_abi.py` — cross-platform abstraction (OS/arch, toolchain, libraries).
 - `src/codegen.py`, `src/native.py` — LLVM IR generation and native compilation.
 - `src/jit.py`, `src/tiered.py` — JIT engine and tiered execution.
 - `src/runtime.py` — tasks, nurseries, and channels.
@@ -258,6 +260,7 @@ Full guides and references live in [`docs/`](docs/):
 - [Concurrency Tutorial](docs/concurrency.md)
 - [Package Management](docs/packages.md)
 - [Memory Management](docs/memory.md)
+- [Cross-Platform Support](docs/cross-platform.md)
 - [Editor Setup](docs/editor-setup.md)
 - [Why Ulang?](docs/why-ulang.md)
 

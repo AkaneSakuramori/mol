@@ -96,6 +96,8 @@ _SINGLE = {
 
 class Lexer:
     def __init__(self, source):
+        if "\r" in source:
+            source = source.replace("\r\n", "\n").replace("\r", "\n")
         self.src = source
         self.pos = 0
         self.line = 1

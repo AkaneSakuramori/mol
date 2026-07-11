@@ -37,6 +37,17 @@ def build_and_run(path, out):
 
 def run():
     failed = 0
+    try:
+        import platform_abi
+        import llvmlite  # noqa: F401
+        if platform_abi.find_c_compiler() is None:
+            print("skip: no C compiler available")
+            print("\n0/0 passed (skipped)")
+            return 0
+    except ImportError:
+        print("skip: llvmlite not installed")
+        print("\n0/0 passed (skipped)")
+        return 0
     tmp = tempfile.mkdtemp()
     for name in EXACT:
         path = os.path.join(NATIVE, name + ".ul")

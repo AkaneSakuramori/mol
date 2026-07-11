@@ -132,7 +132,18 @@ def test_semantics_unchanged():
     return "semantics: output identical with GC on and off"
 
 
+def _have_native():
+    try:
+        import platform_abi
+        import llvmlite  # noqa: F401
+        return platform_abi.find_c_compiler() is not None
+    except ImportError:
+        return False
+
+
 def test_native_gc_runtime():
+    if not _have_native():
+        return "native runtime: skipped (no C compiler)"
     runtime = os.path.join(ROOT, "runtime")
     exe = tempfile.mktemp()
     r = subprocess.run(
@@ -149,6 +160,8 @@ def test_native_gc_runtime():
 
 
 def test_native_binary_links_gc():
+    if not _have_native():
+        return "native backend: skipped (no C compiler)"
     from native import build_executable
     exe = tempfile.mktemp()
     src = "fn main():\n    print(21 + 21)\n"
