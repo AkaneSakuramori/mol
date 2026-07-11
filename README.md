@@ -210,6 +210,17 @@ bench/           benchmarks across execution engines
 - [`spec/grammar.ebnf`](spec/grammar.ebnf) — formal EBNF grammar.
 - [`examples/`](examples/) — example programs.
 
+## Documentation
+
+Full guides and references live in [`docs/`](docs/):
+
+- [Getting Started](docs/getting-started.md)
+- [Language Reference](docs/language-reference.md)
+- [Standard Library](docs/stdlib.md)
+- [FFI Guide](docs/ffi.md)
+- [Concurrency Tutorial](docs/concurrency.md)
+- [Why Ulang?](docs/why-ulang.md)
+
 ## Roadmap
 
 1. Spec & grammar — language definition, EBNF, example programs. ✅
