@@ -6,7 +6,7 @@ Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **1.8.6** — self-hosting Stage 3 in progress (optimizer + bytecode generation), Stages 1–2 complete, cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
+> Status: **1.8.7** — self-hosting Stages 1–3 complete (parser, semantic analysis, optimizer + bytecode + native codegen), cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
 
 ## Features
 
@@ -128,13 +128,17 @@ time; each stage is validated for identical behavior against the Python referenc
     validation, and match exhaustiveness checking.
   - `selfhost/compiler/exports.ul` — visibility / package exports (a module's public API).
   - `selfhost/compiler/consteval.ul` — compile-time constant evaluation with propagation.
-- **Stage 3 — Optimization and code generation: in progress.**
+- **Stage 3 — Optimization and code generation: complete.**
   - `selfhost/compiler/optimizer.ul` — the reference AST optimizer's behavior-preserving
-    passes (constant folding, propagation, dead-branch elimination, algebraic identities),
-    producing optimized syntax trees byte-identical to the reference.
+    passes, producing optimized syntax trees byte-identical to the reference.
   - `selfhost/compiler/bytecode.ul` — stack-VM bytecode generation (all control flow,
     closures, pattern dispatch, and the peephole pass), instruction-for-instruction
-    identical to the reference. Remaining: native code generation.
+    identical to the reference.
+  - `selfhost/compiler/codegen.ul` — native LLVM code generation for the numeric and
+    control-flow core, producing binaries whose output is identical to `ulang build`.
+
+All three self-hosting stages — parsing, semantic analysis, and optimization/code
+generation — are complete, each validated against the Python reference.
 
 ```sh
 cp path/to/program.ul input.ul

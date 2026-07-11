@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.8.7
+
+### Added
+- **Self-hosting Stage 3 complete — native code generation**
+  (`selfhost/compiler/codegen.ul`). It compiles the syntax tree to LLVM IR text for the
+  numeric and control-flow core — the same surface as the reference `src/codegen.py`:
+  `int`/`float`/`bool` values, functions with typed parameters, `let`/`var`/assignment,
+  `if`/`elif`/`else`, `while`, `for` over `range`, `break`/`continue`, arithmetic with
+  int-to-float coercion, comparisons, short-circuiting logical operators, unary operators,
+  ternaries, calls, and `print`. The generated IR is compiled to a native binary and
+  verified to produce output identical to the reference `ulang build`.
+- Validation (`tests/test_selfhost_codegen.py`): the self-hosted codegen's native output
+  is verified equal to the reference across an execution corpus exercising the full
+  numeric/control-flow surface and the native example programs. The test compiles the
+  self-hosted IR through llvmlite, links the GC runtime, runs it, and compares output.
+
+### Stage 3 complete
+The self-hosted optimization and code generation pipeline is now feature-complete: AST
+optimizer, stack-VM bytecode generation, and native LLVM code generation, each proven
+equivalent to the Python reference. All three self-hosting stages — parsing, semantic
+analysis, and optimization/code generation — are complete.
+
+### Notes
+- The canonical syntax-tree form keeps integer/boolean literal values while strings and
+  floats are opaque atoms. Programs whose control flow or output depends on a specific
+  float or string literal value fall outside this representation and are covered by the
+  reference's own native-backend tests; the structural code generation for those forms
+  (float arithmetic and coercion, string handling) is still exercised and verified.
+
 ## 1.8.6
 
 ### Added

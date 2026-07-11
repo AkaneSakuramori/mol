@@ -18,6 +18,7 @@ compiler/
   consteval.ul   syntax tree  -> compile-time values of constant expressions
   optimizer.ul   syntax tree  -> optimized syntax tree (behavior-preserving passes)
   bytecode.ul    syntax tree  -> stack-VM bytecode (with peephole)
+  codegen.ul     syntax tree  -> native LLVM IR (numeric / control-flow core)
 ```
 
 ## Status
@@ -30,7 +31,7 @@ compiler/
   - Name resolution and type checking, pattern validation, and exhaustiveness (`checker.ul`).
   - Visibility / package exports (`exports.ul`).
   - Constant evaluation (`consteval.ul`).
-- **Stage 3 — Optimization and code generation: in progress.**
+- **Stage 3 — Optimization and code generation: complete.**
   - AST optimizer (`optimizer.ul`): the behavior-preserving passes of the reference
     `src/optimizer.py` — constant folding, constant propagation through immutable
     `let`/`const` bindings, dead-branch elimination (`if`/`elif`/`else`, `while false`,
@@ -39,20 +40,27 @@ compiler/
   - Bytecode generation (`bytecode.ul`): compiles the syntax tree to stack-VM bytecode,
     mirroring the reference `src/compiler.py` — expressions, control flow, loops with
     `break`/`continue`, pattern-matching dispatch, tail-position block values, nested
-    closures, and the same peephole pass (jump-to-next and unreachable-code removal with
-    jump-target remapping). Verified instruction-for-instruction identical to the reference
-    (`tests/test_selfhost_bytecode.py`).
+    closures, and the same peephole pass. Verified instruction-for-instruction identical to
+    the reference (`tests/test_selfhost_bytecode.py`).
+  - Native code generation (`codegen.ul`): compiles the syntax tree to LLVM IR for the
+    numeric and control-flow core (`int`/`float`/`bool`, functions, `if`/`while`/`for`,
+    arithmetic with coercion, comparisons, logical operators, ternaries, calls, and
+    `print`), the same surface as the reference `src/codegen.py`. Its IR is compiled to a
+    native binary and verified to produce output identical to the reference `ulang build`
+    across an execution corpus and the native example programs
+    (`tests/test_selfhost_codegen.py`).
 
 ## Note on literals
 
 The self-hosted pipeline exchanges a canonical syntax-tree form in which string and float
 literals are opaque atoms (`(str)`, `(flt)`); integer and boolean literals carry their
 values. Every pass over integer, boolean, and structural forms is therefore reproduced
-exactly. Two behaviors depend on literal *values* that this representation intentionally
-omits, are covered by the reference's own tests, and do not affect program behavior:
-constant folding of string/float values (e.g. `"a" + "b"`, `1.5 + 2.5`), and the bytecode
-for string *interpolation* (whose embedded sub-expressions are not carried by an opaque
-string atom). Constant strings and floats compile to identical (opaque) bytecode.
+exactly. A few behaviors depend on literal *values* that this representation intentionally
+omits — constant folding of string/float values (e.g. `"a" + "b"`, `1.5 + 2.5`), the
+bytecode for string interpolation, and native codegen for programs whose control flow or
+output depends on a specific float/string literal value. These are covered by the
+reference's own tests and do not affect program behavior; the structural code generation
+for those forms (float arithmetic and coercion, string handling) is still exercised.
 
 ## Running
 

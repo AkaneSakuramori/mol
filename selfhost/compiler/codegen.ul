@@ -1,0 +1,753 @@
+import fs
+
+# --- S-expression reader ---
+
+fn read_sexpr(text: str) -> dyn:
+    let chars = text.chars()
+    let state = [chars, chars.len(), 0]
+    return parse_node(state)
+
+fn cur(state: dyn) -> str:
+    if state[2] >= state[1]:
+        return ""
+    return state[0][state[2]]
+
+fn parse_node(state: dyn) -> dyn:
+    skip_ws(state)
+    if cur(state) == "(":
+        state[2] = state[2] + 1
+        var items = []
+        while true:
+            skip_ws(state)
+            if cur(state) == ")":
+                state[2] = state[2] + 1
+                return items
+            if cur(state) == "":
+                return items
+            items.push(parse_node(state))
+        return items
+    return parse_atom(state)
+
+fn parse_atom(state: dyn) -> str:
+    var s = ""
+    while state[2] < state[1]:
+        let c = state[0][state[2]]
+        if c == " " or c == "(" or c == ")":
+            break
+        s += c
+        state[2] = state[2] + 1
+    return s
+
+fn skip_ws(state: dyn):
+    while state[2] < state[1] and state[0][state[2]] == " ":
+        state[2] = state[2] + 1
+
+fn is_atom(node: dyn) -> bool:
+    return not is_list(node)
+
+fn tag(node: dyn) -> str:
+    if is_list(node):
+        if node.len() == 0:
+            return ""
+        return node[0]
+    return node
+
+fn is_number_str(s: str) -> bool:
+    if s.len() == 0:
+        return false
+    var start = 0
+    if s.chars()[0] == "-":
+        if s.len() == 1:
+            return false
+        start = 1
+    var i = start
+    while i < s.len():
+        let c = s.chars()[i]
+        if not (c >= "0" and c <= "9"):
+            return false
+        i = i + 1
+    return true
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var neg = false
+    if m < 0:
+        neg = true
+        m = 0 - m
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    if neg:
+        return "-" + s
+    return s
+
+# --- type mapping: int=i64, float=double, bool=i1 ---
+
+fn native_type(node: dyn) -> str:
+    if is_atom(node):
+        if node == "float":
+            return "double"
+        if node == "bool":
+            return "i1"
+        return "i64"
+    return "i64"
+
+# --- code generator state ---
+
+type Gen:
+    body: dyn        # list of IR lines for the current function
+    temp: int        # SSA temp counter
+    label: int       # unique-label counter
+    locals: dyn      # list of [name, slot, type]
+    sigs: dyn        # list of [name, retType, paramTypes]
+    terminated: bool
+    ret_type: str
+    fn_name: str
+    loop_end: str
+    loop_cond: str
+
+fn new_gen() -> Gen:
+    return Gen([], 0, 0, [], [], false, "i64", "", "", "")
+
+fn fresh(g: Gen) -> str:
+    g.temp = g.temp + 1
+    return "%t${int_str(g.temp)}"
+
+fn new_label(g: Gen, base: str) -> str:
+    g.label = g.label + 1
+    return "${base}.${int_str(g.label)}"
+
+fn emit(g: Gen, line: str):
+    if not g.terminated:
+        g.body.push("  " + line)
+
+fn emit_label(g: Gen, name: str):
+    g.body.push("${name}:")
+    g.terminated = false
+
+fn terminate(g: Gen, line: str):
+    if not g.terminated:
+        g.body.push("  " + line)
+    g.terminated = true
+
+# --- local variable table ---
+
+fn local_slot(g: Gen, name: str) -> str:
+    var i = g.locals.len() - 1
+    while i >= 0:
+        if g.locals[i][0] == name:
+            return g.locals[i][1]
+        i = i - 1
+    return ""
+
+fn local_type(g: Gen, name: str) -> str:
+    var i = g.locals.len() - 1
+    while i >= 0:
+        if g.locals[i][0] == name:
+            return g.locals[i][2]
+        i = i - 1
+    return "i64"
+
+fn set_local(g: Gen, name: str, slot: str, ty: str):
+    g.locals.push([name, slot, ty])
+
+fn sig_of(g: Gen, name: str) -> dyn:
+    for s in g.sigs:
+        if s[0] == name:
+            return s
+    return []
+
+# --- expression generation: returns [value, type] ---
+
+fn gen_expr(g: Gen, node: dyn) -> dyn:
+    if is_atom(node):
+        if is_number_str(node):
+            return [node, "i64"]
+        if node == "true":
+            return ["1", "i1"]
+        if node == "false":
+            return ["0", "i1"]
+        let slot = local_slot(g, node)
+        let ty = local_type(g, node)
+        let t = fresh(g)
+        emit(g, "${t} = load ${ty}, ${ty}* ${slot}")
+        return [t, ty]
+    let tg = tag(node)
+    if tg == "flt":
+        return ["0.0", "double"]
+    if tg == "neg":
+        return gen_neg(g, node)
+    if tg == "not":
+        return gen_not(g, node)
+    if tg == "and" or tg == "or":
+        return gen_logical(g, node)
+    if tg == "==" or tg == "!=" or tg == "<" or tg == "<=" or tg == ">" or tg == ">=":
+        return gen_compare(g, node)
+    if tg == "+" or tg == "-" or tg == "*" or tg == "/" or tg == "%":
+        return gen_arith(g, node)
+    if tg == "ternary":
+        return gen_ternary(g, node)
+    if tg == "cll":
+        return gen_call(g, node)
+    if tg == "str":
+        return ["null", "i8*"]
+    return ["0", "i64"]
+
+fn gen_neg(g: Gen, node: dyn) -> dyn:
+    let v = gen_expr(g, node[1])
+    let t = fresh(g)
+    if v[1] == "double":
+        emit(g, "${t} = fneg double ${v[0]}")
+        return [t, "double"]
+    emit(g, "${t} = sub i64 0, ${v[0]}")
+    return [t, "i64"]
+
+fn gen_not(g: Gen, node: dyn) -> dyn:
+    let v = gen_expr(g, node[1])
+    let b = to_bool(g, v)
+    let t = fresh(g)
+    emit(g, "${t} = xor i1 ${b}, true")
+    return [t, "i1"]
+
+fn gen_arith(g: Gen, node: dyn) -> dyn:
+    let op = node[0]
+    let l = gen_expr(g, node[1])
+    let r = gen_expr(g, node[2])
+    var rt = "i64"
+    if l[1] == "double" or r[1] == "double":
+        rt = "double"
+    let lv = coerce(g, l, rt)
+    let rv = coerce(g, r, rt)
+    let t = fresh(g)
+    emit(g, "${t} = ${arith_op(op, rt)} ${rt} ${lv}, ${rv}")
+    return [t, rt]
+
+fn arith_op(op: str, ty: str) -> str:
+    if ty == "double":
+        if op == "+":
+            return "fadd"
+        if op == "-":
+            return "fsub"
+        if op == "*":
+            return "fmul"
+        if op == "/":
+            return "fdiv"
+        return "frem"
+    if op == "+":
+        return "add"
+    if op == "-":
+        return "sub"
+    if op == "*":
+        return "mul"
+    if op == "/":
+        return "sdiv"
+    return "srem"
+
+fn gen_compare(g: Gen, node: dyn) -> dyn:
+    let op = node[0]
+    let l = gen_expr(g, node[1])
+    let r = gen_expr(g, node[2])
+    let t = fresh(g)
+    if l[1] == "double" or r[1] == "double":
+        let lv = coerce(g, l, "double")
+        let rv = coerce(g, r, "double")
+        emit(g, "${t} = fcmp ${fcmp_pred(op)} double ${lv}, ${rv}")
+    else:
+        emit(g, "${t} = icmp ${icmp_pred(op)} i64 ${l[0]}, ${r[0]}")
+    return [t, "i1"]
+
+fn icmp_pred(op: str) -> str:
+    if op == "==":
+        return "eq"
+    if op == "!=":
+        return "ne"
+    if op == "<":
+        return "slt"
+    if op == "<=":
+        return "sle"
+    if op == ">":
+        return "sgt"
+    return "sge"
+
+fn fcmp_pred(op: str) -> str:
+    if op == "==":
+        return "oeq"
+    if op == "!=":
+        return "one"
+    if op == "<":
+        return "olt"
+    if op == "<=":
+        return "ole"
+    if op == ">":
+        return "ogt"
+    return "oge"
+
+fn gen_logical(g: Gen, node: dyn) -> dyn:
+    let op = node[0]
+    let slot = fresh(g)
+    emit(g, "${slot} = alloca i1")
+    let l = gen_expr(g, node[1])
+    let lb = to_bool(g, l)
+    emit(g, "store i1 ${lb}, i1* ${slot}")
+    let rhs = new_label(g, "logic.rhs")
+    let endl = new_label(g, "logic.end")
+    if op == "and":
+        terminate(g, "br i1 ${lb}, label %${rhs}, label %${endl}")
+    else:
+        terminate(g, "br i1 ${lb}, label %${endl}, label %${rhs}")
+    emit_label(g, rhs)
+    let r = gen_expr(g, node[2])
+    let rb = to_bool(g, r)
+    emit(g, "store i1 ${rb}, i1* ${slot}")
+    terminate(g, "br label %${endl}")
+    emit_label(g, endl)
+    let t = fresh(g)
+    emit(g, "${t} = load i1, i1* ${slot}")
+    return [t, "i1"]
+
+fn gen_ternary(g: Gen, node: dyn) -> dyn:
+    let cond = gen_expr(g, node[1])
+    let cb = to_bool(g, cond)
+    # mirror the reference: evaluate 'then' once in the current block to learn its type
+    # and size the slot, then branch and re-evaluate in the then block.
+    let peek = gen_expr(g, node[2])
+    let rt = peek[1]
+    let slot = fresh(g)
+    emit(g, "${slot} = alloca ${rt}")
+    let thenl = new_label(g, "tern.then")
+    let elsel = new_label(g, "tern.else")
+    let endl = new_label(g, "tern.end")
+    terminate(g, "br i1 ${cb}, label %${thenl}, label %${elsel}")
+    emit_label(g, thenl)
+    let tv = gen_expr(g, node[2])
+    emit(g, "store ${rt} ${tv[0]}, ${rt}* ${slot}")
+    terminate(g, "br label %${endl}")
+    emit_label(g, elsel)
+    let ev = gen_expr(g, node[3])
+    let evc = coerce(g, ev, rt)
+    emit(g, "store ${rt} ${evc}, ${rt}* ${slot}")
+    terminate(g, "br label %${endl}")
+    emit_label(g, endl)
+    let t = fresh(g)
+    emit(g, "${t} = load ${rt}, ${rt}* ${slot}")
+    return [t, rt]
+
+fn gen_call(g: Gen, node: dyn) -> dyn:
+    let fnode = node[1]
+    if is_atom(fnode) and fnode == "print":
+        return gen_print(g, node)
+    let name = fnode
+    let sig = sig_of(g, name)
+    let ret = sig[1]
+    let ptypes = sig[2]
+    var argvals = []
+    var i = 2
+    var k = 0
+    while i < node.len():
+        let a = gen_expr(g, node[i])
+        var pt = "i64"
+        if k < ptypes.len():
+            pt = ptypes[k]
+        argvals.push([coerce(g, a, pt), pt])
+        i = i + 1
+        k = k + 1
+    var argstr = ""
+    var j = 0
+    while j < argvals.len():
+        if j > 0:
+            argstr += ", "
+        argstr += "${argvals[j][1]} ${argvals[j][0]}"
+        j = j + 1
+    let t = fresh(g)
+    emit(g, "${t} = call ${ret} @${name}(${argstr})")
+    return [t, ret]
+
+fn gen_print(g: Gen, node: dyn) -> dyn:
+    if node.len() >= 3:
+        let v = gen_expr(g, node[2])
+        let ty = v[1]
+        if ty == "double":
+            let t = fresh(g)
+            emit(g, "${t} = call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.fmt_f, i64 0, i64 0), double ${v[0]})")
+        elif ty == "i1":
+            gen_print_bool(g, v[0])
+        else:
+            let t = fresh(g)
+            emit(g, "${t} = call i32 (i8*, ...) @printf(i8* getelementptr ([5 x i8], [5 x i8]* @.fmt_d, i64 0, i64 0), i64 ${v[0]})")
+    return ["0", "i64"]
+
+fn gen_print_bool(g: Gen, val: str):
+    let ptr = fresh(g)
+    emit(g, "${ptr} = select i1 ${val}, i8* getelementptr ([6 x i8], [6 x i8]* @.true_s, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.false_s, i64 0, i64 0)")
+    let t = fresh(g)
+    emit(g, "${t} = call i32 (i8*, ...) @printf(i8* ${ptr})")
+
+# --- coercions ---
+
+fn coerce(g: Gen, v: dyn, to: str) -> str:
+    if v[1] == to:
+        return v[0]
+    if v[1] == "i64" and to == "double":
+        let t = fresh(g)
+        emit(g, "${t} = sitofp i64 ${v[0]} to double")
+        return t
+    if v[1] == "i1" and to == "i64":
+        let t = fresh(g)
+        emit(g, "${t} = zext i1 ${v[0]} to i64")
+        return t
+    if v[1] == "i1" and to == "double":
+        let z = fresh(g)
+        emit(g, "${z} = zext i1 ${v[0]} to i64")
+        let t = fresh(g)
+        emit(g, "${t} = sitofp i64 ${z} to double")
+        return t
+    return v[0]
+
+fn to_bool(g: Gen, v: dyn) -> str:
+    if v[1] == "i1":
+        return v[0]
+    if v[1] == "double":
+        let t = fresh(g)
+        emit(g, "${t} = fcmp one double ${v[0]}, 0.0")
+        return t
+    let t = fresh(g)
+    emit(g, "${t} = icmp ne i64 ${v[0]}, 0")
+    return t
+
+fn to_i64(g: Gen, v: dyn) -> str:
+    if v[1] == "double":
+        let t = fresh(g)
+        emit(g, "${t} = fptosi double ${v[0]} to i64")
+        return t
+    if v[1] == "i1":
+        let t = fresh(g)
+        emit(g, "${t} = zext i1 ${v[0]} to i64")
+        return t
+    return v[0]
+
+# --- statement generation ---
+
+fn gen_block(g: Gen, block: dyn):
+    var i = 1
+    while i < block.len():
+        if g.terminated:
+            return
+        gen_stmt(g, block[i])
+        i = i + 1
+
+fn gen_stmt(g: Gen, node: dyn):
+    let t = tag(node)
+    if t == "let":
+        gen_let(g, node)
+    elif t == "var":
+        gen_var(g, node)
+    elif t == "asn":
+        gen_assign(g, node)
+    elif t == "ret":
+        gen_return(g, node)
+    elif t == "expr":
+        gen_expr(g, node[1])
+    elif t == "if":
+        gen_if(g, node)
+    elif t == "while":
+        gen_while(g, node)
+    elif t == "for":
+        gen_for(g, node)
+    elif t == "brk":
+        terminate(g, "br label %${g.loop_end}")
+    elif t == "cnt":
+        terminate(g, "br label %${g.loop_cond}")
+
+fn gen_let(g: Gen, node: dyn):
+    let v = gen_expr(g, node[3])
+    let slot = fresh(g)
+    emit(g, "${slot} = alloca ${v[1]}")
+    emit(g, "store ${v[1]} ${v[0]}, ${v[1]}* ${slot}")
+    set_local(g, node[1], slot, v[1])
+
+fn gen_var(g: Gen, node: dyn):
+    let v = gen_expr(g, node[3])
+    let slot = fresh(g)
+    emit(g, "${slot} = alloca ${v[1]}")
+    emit(g, "store ${v[1]} ${v[0]}, ${v[1]}* ${slot}")
+    set_local(g, node[1], slot, v[1])
+
+fn gen_assign(g: Gen, node: dyn):
+    let name = node[2]
+    let slot = local_slot(g, name)
+    let ty = local_type(g, name)
+    var v = gen_expr(g, node[3])
+    if node[1] != "=":
+        let cur_v = fresh(g)
+        emit(g, "${cur_v} = load ${ty}, ${ty}* ${slot}")
+        let op = strip_eq(node[1])
+        let rv = coerce(g, v, ty)
+        let res = fresh(g)
+        emit(g, "${res} = ${arith_op(op, ty)} ${ty} ${cur_v}, ${rv}")
+        v = [res, ty]
+    let sv = coerce(g, v, ty)
+    emit(g, "store ${ty} ${sv}, ${ty}* ${slot}")
+
+fn strip_eq(op: str) -> str:
+    var out = ""
+    var i = 0
+    while i < op.len() - 1:
+        out += op.chars()[i]
+        i = i + 1
+    return out
+
+fn gen_return(g: Gen, node: dyn):
+    if node.len() == 1:
+        terminate(g, "ret ${zero_ret(g)}")
+        return
+    let v = gen_expr(g, node[1])
+    if g.fn_name == "main":
+        let iv = to_i64(g, v)
+        terminate(g, "ret i64 ${iv}")
+    else:
+        let cv = coerce(g, v, g.ret_type)
+        terminate(g, "ret ${g.ret_type} ${cv}")
+
+fn zero_ret(g: Gen) -> str:
+    if g.ret_type == "double":
+        return "double 0.0"
+    if g.ret_type == "i1":
+        return "i1 0"
+    return "i64 0"
+
+fn gen_if(g: Gen, node: dyn):
+    let endl = new_label(g, "if.end")
+    var reached = [false]
+    gen_if_chain(g, node[1], node[2], node[3], node[4], endl, reached)
+    emit_label(g, endl)
+    if not reached[0]:
+        terminate(g, "unreachable")
+        emit_label(g, new_label(g, "if.dead"))
+
+fn gen_if_chain(g: Gen, cond: dyn, then: dyn, elifs: dyn, orelse: dyn, endl: str, reached: dyn):
+    let c = gen_expr(g, cond)
+    let cb = to_bool(g, c)
+    let thenl = new_label(g, "if.then")
+    let elsel = new_label(g, "if.else")
+    terminate(g, "br i1 ${cb}, label %${thenl}, label %${elsel}")
+    emit_label(g, thenl)
+    gen_block(g, then)
+    if not g.terminated:
+        terminate(g, "br label %${endl}")
+        reached[0] = true
+    emit_label(g, elsel)
+    if elifs.len() > 0:
+        let first = elifs[0]
+        var rest = ["_"]
+        var i = 1
+        while i < elifs.len():
+            rest.push(elifs[i])
+            i = i + 1
+        gen_if_chain(g, first[1], first[2], drop_head(rest), orelse, endl, reached)
+    elif is_list(orelse):
+        gen_block(g, orelse)
+        if not g.terminated:
+            terminate(g, "br label %${endl}")
+            reached[0] = true
+    else:
+        if not g.terminated:
+            terminate(g, "br label %${endl}")
+            reached[0] = true
+
+fn drop_head(lst: dyn) -> dyn:
+    var out = []
+    var i = 1
+    while i < lst.len():
+        out.push(lst[i])
+        i = i + 1
+    return out
+
+fn gen_while(g: Gen, node: dyn):
+    let condl = new_label(g, "while.cond")
+    let bodyl = new_label(g, "while.body")
+    let endl = new_label(g, "while.end")
+    terminate(g, "br label %${condl}")
+    emit_label(g, condl)
+    let c = gen_expr(g, node[1])
+    let cb = to_bool(g, c)
+    terminate(g, "br i1 ${cb}, label %${bodyl}, label %${endl}")
+    emit_label(g, bodyl)
+    let save_end = g.loop_end
+    let save_cond = g.loop_cond
+    g.loop_end = endl
+    g.loop_cond = condl
+    gen_block(g, node[2])
+    if not g.terminated:
+        terminate(g, "br label %${condl}")
+    g.loop_end = save_end
+    g.loop_cond = save_cond
+    emit_label(g, endl)
+
+fn gen_for(g: Gen, node: dyn):
+    # for x in range(a, b [, step])
+    let it = node[2]
+    let rargs = it
+    var start = ["0", "i64"]
+    var stop = ["0", "i64"]
+    var step = ["1", "i64"]
+    let nargs = rargs.len() - 2
+    if nargs == 1:
+        stop = gen_expr(g, rargs[2])
+    else:
+        start = gen_expr(g, rargs[2])
+        stop = gen_expr(g, rargs[3])
+        if nargs == 3:
+            step = gen_expr(g, rargs[4])
+    let var_slot = fresh(g)
+    emit(g, "${var_slot} = alloca i64")
+    emit(g, "store i64 ${start[0]}, i64* ${var_slot}")
+    set_local(g, node[1], var_slot, "i64")
+    let condl = new_label(g, "for.cond")
+    let bodyl = new_label(g, "for.body")
+    let endl = new_label(g, "for.end")
+    terminate(g, "br label %${condl}")
+    emit_label(g, condl)
+    let cur_v = fresh(g)
+    emit(g, "${cur_v} = load i64, i64* ${var_slot}")
+    let cmp = fresh(g)
+    emit(g, "${cmp} = icmp slt i64 ${cur_v}, ${stop[0]}")
+    terminate(g, "br i1 ${cmp}, label %${bodyl}, label %${endl}")
+    emit_label(g, bodyl)
+    let save_end = g.loop_end
+    let save_cond = g.loop_cond
+    g.loop_end = endl
+    g.loop_cond = condl
+    gen_block(g, node[3])
+    if not g.terminated:
+        let c2 = fresh(g)
+        emit(g, "${c2} = load i64, i64* ${var_slot}")
+        let nx = fresh(g)
+        emit(g, "${nx} = add i64 ${c2}, ${step[0]}")
+        emit(g, "store i64 ${nx}, i64* ${var_slot}")
+        terminate(g, "br label %${condl}")
+    g.loop_end = save_end
+    g.loop_cond = save_cond
+    emit_label(g, endl)
+
+# --- function + module ---
+
+fn collect_sigs(module: dyn) -> dyn:
+    var sigs = []
+    for decl in module:
+        if tag(decl) == "fn":
+            let name = decl[2]
+            var ptypes = []
+            let params = decl[4]
+            if is_list(params):
+                var i = 1
+                while i < params.len():
+                    let p = params[i]
+                    if is_list(p):
+                        ptypes.push(native_type(p[2]))
+                    i = i + 1
+            var ret = "i64"
+            if decl[5] != "_":
+                ret = native_type(decl[5])
+            sigs.push([name, ret, ptypes])
+    return sigs
+
+fn gen_function(decl: dyn, sigs: dyn) -> str:
+    let g = new_gen()
+    g.sigs = sigs
+    g.loop_end = ""
+    g.loop_cond = ""
+    let uname = decl[2]
+    let sig = sig_of(g, uname)
+    g.ret_type = sig[1]
+    g.fn_name = uname
+    var llname = uname
+    var llret = sig[1]
+    if uname == "main":
+        llname = "ulang_main"
+        llret = "i64"
+    # parameters
+    var params_ir = ""
+    var setup = []
+    let params = decl[4]
+    var pi = 0
+    if is_list(params):
+        var i = 1
+        while i < params.len():
+            let p = params[i]
+            if is_list(p):
+                let pt = native_type(p[2])
+                let argname = "%arg${int_str(pi)}"
+                if pi > 0:
+                    params_ir += ", "
+                params_ir += "${pt} ${argname}"
+                let slot = "%p${int_str(pi)}"
+                setup.push("  ${slot} = alloca ${pt}")
+                setup.push("  store ${pt} ${argname}, ${pt}* ${slot}")
+                set_local(g, p[1], slot, pt)
+                pi = pi + 1
+            i = i + 1
+    g.temp = pi + 100
+    gen_block(g, decl[6])
+    if not g.terminated:
+        if uname == "main":
+            terminate(g, "ret i64 0")
+        else:
+            terminate(g, "ret ${zero_ret(g)}")
+    var out = "define ${llret} @${llname}(${params_ir}) {\nentry:\n"
+    for line in setup:
+        out += line + "\n"
+    for line in g.body:
+        out += line + "\n"
+    out += "}\n"
+    return out
+
+fn render_module(module: dyn) -> str:
+    let sigs = collect_sigs(module)
+    var out = header()
+    for decl in module:
+        if tag(decl) == "fn":
+            out += gen_function(decl, sigs)
+    out += entry_main(module)
+    return out
+
+fn header() -> str:
+    var s = "declare i32 @printf(i8*, ...)\n"
+    s += "declare void @ul_gc_init()\n"
+    s += "declare void @ul_gc_shutdown()\n"
+    s += "@.fmt_d = private constant [5 x i8] c\"%ld\\0A\\00\"\n"
+    s += "@.fmt_f = private constant [4 x i8] c\"%g\\0A\\00\"\n"
+    s += "@.true_s = private constant [6 x i8] c\"true\\0A\\00\"\n"
+    s += "@.false_s = private constant [7 x i8] c\"false\\0A\\00\"\n"
+    return s
+
+fn entry_main(module: dyn) -> str:
+    var has_main = false
+    for decl in module:
+        if tag(decl) == "fn" and decl[2] == "main":
+            has_main = true
+    if not has_main:
+        return ""
+    var s = "define i32 @main() {\nentry:\n"
+    s += "  call void @ul_gc_init()\n"
+    s += "  %r = call i64 @ulang_main()\n"
+    s += "  call void @ul_gc_shutdown()\n"
+    s += "  %rt = trunc i64 %r to i32\n"
+    s += "  ret i32 %rt\n"
+    s += "}\n"
+    return s
+
+fn main():
+    match fs.read("tree.sexpr"):
+        Ok(text) => run(text)
+        Err(e) => print("error: ${e}")
+
+fn run(text: str):
+    var module = []
+    for line in text.split("\n"):
+        if line.trim() != "":
+            module.push(read_sexpr(line))
+    print(render_module(module))

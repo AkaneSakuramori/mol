@@ -27,6 +27,7 @@ SUITES = [
     "test_selfhost_consteval.py",
     "test_selfhost_optimizer.py",
     "test_selfhost_bytecode.py",
+    "test_selfhost_codegen.py",
     "test_memory.py",
     "test_platform.py",
 ]
