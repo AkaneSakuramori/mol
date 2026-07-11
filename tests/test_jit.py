@@ -11,7 +11,6 @@ from tiered import JITInterpreter
 from builtins_mod import UlangPanic
 
 
-SELFHOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "selfhost")
 
 
 def capture(fn):
@@ -66,22 +65,7 @@ def run():
             print(f"FAIL jit {i}: interp={interp_out!r} jit={jit_out!r}")
             failed += 1
 
-    path = os.path.join(SELFHOST, "tokenize.ul")
-    with open(path) as f:
-        src = f.read()
-    try:
-        out = capture(lambda: Interpreter().run(parse(src)))
-        lines = out.splitlines()
-        if lines and lines[0] == "KEYWORD:fn" and lines[-1] == "count: 12":
-            print("ok   selfhost: Ulang tokenizer tokenizes Ulang source correctly")
-        else:
-            print(f"FAIL selfhost: unexpected output {lines[:2]}...{lines[-1:]}")
-            failed += 1
-    except (UlangPanic, Exception) as e:
-        print(f"FAIL selfhost: {e}")
-        failed += 1
-
-    total = len(JIT_CASES) + 1
+    total = len(JIT_CASES)
     print(f"\n{total - failed}/{total} passed")
     return 1 if failed else 0
 

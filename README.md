@@ -107,30 +107,28 @@ Run them with `python3 bench/benchmark.py`.
 
 ## Self-hosting
 
-Ulang is progressing toward a self-hosted compiler — one written in Ulang itself. Each
-stage is kept correct and testable, and validated against the Python reference before the
-next begins.
+Ulang is progressing toward a self-hosted compiler — the Ulang compiler written in Ulang
+itself, in [`selfhost/compiler/`](selfhost/compiler/). It is built one compiler stage at a
+time; each stage is validated for identical behavior against the Python reference in
+[`src/`](src/) before the next begins.
 
-Milestones so far:
-
-1. **Lexer** (`selfhost/lexer.ul`) — its token stream is verified to match the reference
-   lexer across keywords, identifiers, numbers, strings, comments, and operators.
-2. **Expression parser** (`selfhost/expr_parser.ul`) — a precedence-climbing parser that
-   emits a canonical AST (as S-expressions), verified against the reference parser's AST.
-3. **Full layout-aware lexer** (`selfhost/lexer_full.ul`) — a complete lexer that produces
-   the full token stream including significant indentation (`INDENT`/`DEDENT`/`NEWLINE`),
-   verified token-for-token against the reference lexer on every example program.
-4. **Complete parser** (`selfhost/parser_full.ul`) — a full recursive-descent parser
-   covering **every language construct**: modules, functions, types, enums, traits,
-   `impl` blocks, generics with bounds, all statements and control flow, pattern matching,
-   lambdas, and the full expression grammar. Its syntax trees are verified **identical to
-   the reference parser** across all 23 example programs plus a stress corpus exercising
-   every construct, and it terminates cleanly on malformed input. This completes Stage 1
-   of the self-hosting roadmap.
+- **Stage 1 — Parsing: complete.**
+  - `selfhost/compiler/lexer.ul` — source text to a token stream, including significant
+    indentation (`INDENT`/`DEDENT`/`NEWLINE`), verified token-for-token against the
+    reference lexer on every example program.
+  - `selfhost/compiler/parser.ul` — token stream to a syntax tree, covering every language
+    construct (modules, functions, types, enums, traits, `impl` blocks, generics with
+    bounds, all statements and control flow, pattern matching, lambdas, and the full
+    expression grammar). Its syntax trees are verified **identical to the reference
+    parser** across all example programs plus a stress corpus, and it terminates cleanly
+    on malformed input.
+- **Stage 2 — Semantic analysis: in progress.**
+- **Stage 3 — Optimization and code generation: not started.**
 
 ```sh
-ulang run selfhost/lexer_full.ul     # full token stream for input.ul
-ulang run selfhost/parser_full.ul    # full syntax tree (S-expressions) for input.ul
+cp path/to/program.ul input.ul
+ulang run selfhost/compiler/lexer.ul     # token stream for input.ul
+ulang run selfhost/compiler/parser.ul    # syntax tree (S-expressions) for input.ul
 ```
 
 ## Optimizations
@@ -251,7 +249,7 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 spec/            language specification and formal grammar
 examples/        example .ul programs
 examples/native/ programs the native backend compiles to binaries
-selfhost/        Ulang tooling written in Ulang
+selfhost/        the Ulang compiler written in Ulang (selfhost/compiler/)
 src/             compiler implementation
 editors/         editor integrations (VS Code extension)
 docs/            guides and reference documentation

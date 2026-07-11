@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from lexer import tokenize, TokenType as T
 
 
-LEXER_UL = os.path.join(ROOT, "selfhost", "lexer_full.ul")
+LEXER_UL = os.path.join(ROOT, "selfhost", "compiler", "lexer.ul")
 ULANG = os.path.join(ROOT, "src", "ulang.py")
 EXAMPLES = os.path.join(ROOT, "examples")
 
@@ -47,7 +47,7 @@ def ulang_tokens(src, workdir):
     with open(os.path.join(workdir, "input.ul"), "w") as f:
         f.write(src)
     result = subprocess.run(
-        [sys.executable, ULANG, "run", "lexer_full.ul"],
+        [sys.executable, ULANG, "run", "lexer.ul"],
         cwd=workdir, capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -57,7 +57,7 @@ def ulang_tokens(src, workdir):
 
 def run():
     workdir = tempfile.mkdtemp()
-    shutil.copy(LEXER_UL, os.path.join(workdir, "lexer_full.ul"))
+    shutil.copy(LEXER_UL, os.path.join(workdir, "lexer.ul"))
     failed = 0
     files = sorted(glob.glob(os.path.join(EXAMPLES, "*.ul")))
     for path in files:
