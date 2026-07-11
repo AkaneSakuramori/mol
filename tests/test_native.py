@@ -30,8 +30,8 @@ def interp_output(path):
 def build_and_run(path, out):
     with open(path, "r", encoding="utf-8") as f:
         source = f.read()
-    build_executable(parse(source), out)
-    result = subprocess.run([out], capture_output=True, text=True)
+    exe = build_executable(parse(source), out)
+    result = subprocess.run([exe], capture_output=True, text=True)
     return result.returncode, result.stdout
 
 

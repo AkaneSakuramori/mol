@@ -93,6 +93,10 @@ class Interpreter:
         return None
 
     def run(self, module):
+        import bigstack
+        return bigstack.run_with_large_stack(lambda: self._run(module))
+
+    def _run(self, module):
         import sys as _sys
         _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
         self.cur_line = 0

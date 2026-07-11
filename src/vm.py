@@ -98,6 +98,10 @@ class VM:
         return Builtin(name, ctor)
 
     def run(self):
+        import bigstack
+        return bigstack.run_with_large_stack(self._run)
+
+    def _run(self):
         import sys as _sys
         _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
         main = self.globals.get("main")
