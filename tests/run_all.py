@@ -23,6 +23,7 @@ SUITES = [
     "test_selfhost.py",
     "test_selfhost_lexer_full.py",
     "test_selfhost_parser.py",
+    "test_selfhost_parser_full.py",
     "test_memory.py",
     "test_platform.py",
 ]

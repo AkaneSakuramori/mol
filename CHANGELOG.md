@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.1
+
+### Added
+- **Self-hosting Stage 1 complete: a full parser written in Ulang**
+  (`selfhost/parser_full.ul`). It is a complete recursive-descent parser covering every
+  construct the reference compiler supports: modules; `fn`/`type`/`enum`/`trait`/`impl`
+  declarations; `const`, `import` (all forms), and `extern`; generics with bounds;
+  parameters, fields, variants, and derives; all statements (`let`/`var`, assignments with
+  every compound operator, `return`/`break`/`continue`/`defer`, `if`/`elif`/`else`,
+  `while`, `for`, `with`, `match`); full pattern matching (wildcard, binding, literal,
+  variant, tuple, guards); lambdas (typed params, block bodies); and the complete
+  expression grammar with correct precedence and associativity.
+- Reference validation (`test_selfhost_parser_full.py`): the Ulang parser's syntax trees
+  are compared against the Python reference parser (via a shared canonical AST
+  serialization, `src/ast_serialize.py`) across all 23 example programs plus a 14-case
+  stress corpus exercising every construct — 37/37 produce identical trees. Malformed
+  input is verified to terminate cleanly (no hang, no host crash).
+
+### Notes
+- The self-hosted parser required no new language features. String and float token
+  contents are treated as opaque atoms on both sides (the self-hosted lexer does not
+  reconstruct literal values), so structural equivalence is validated exactly.
+
 ## 1.8.0
 
 ### Added

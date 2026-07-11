@@ -1,0 +1,1090 @@
+import fs
+
+fn is_digit(c: str) -> bool:
+    return c >= "0" and c <= "9"
+
+fn is_alpha(c: str) -> bool:
+    return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+
+fn is_alnum(c: str) -> bool:
+    return is_alpha(c) or is_digit(c)
+
+fn is_keyword(word: str) -> bool:
+    let words = ["fn", "let", "var", "const", "type", "enum", "trait", "impl",
+                 "derive", "pub", "import", "from", "as", "if", "elif", "else",
+                 "match", "while", "for", "in", "with", "defer", "return",
+                 "break", "continue", "extern", "and", "or", "not",
+                 "true", "false", "none"]
+    for kw in words:
+        if kw == word:
+            return true
+    return false
+
+fn two_char_op(pair: str) -> bool:
+    let ops = ["==", "!=", "<=", ">=", "->", "=>", "+=", "-=", "*=", "/=", "%=", "++"]
+    for op in ops:
+        if op == pair:
+            return true
+    return false
+
+type Lexer:
+    chars: dyn
+    n: int
+    i: int
+    indents: dyn
+    paren_depth: int
+    tokens: dyn
+    ls: int
+
+fn lpush(lx: Lexer, kind: str, text: str):
+    lx.tokens.push([kind, text])
+
+fn skip_string(lx: Lexer):
+    lx.i = lx.i + 1
+    while lx.i < lx.n and lx.chars[lx.i] != "\"":
+        if lx.chars[lx.i] == "\\":
+            lx.i = lx.i + 1
+        lx.i = lx.i + 1
+    lx.i = lx.i + 1
+
+fn line_indent(lx: Lexer) -> int:
+    var indent = 0
+    while lx.i < lx.n and (lx.chars[lx.i] == " " or lx.chars[lx.i] == "\t"):
+        indent += 1
+        lx.i = lx.i + 1
+    return indent
+
+fn handle_line_start(lx: Lexer):
+    let indent = line_indent(lx)
+    if lx.i >= lx.n:
+        return
+    let c = lx.chars[lx.i]
+    if c == "\n":
+        lx.i = lx.i + 1
+        lx.ls = 1
+        return
+    if c == "#":
+        while lx.i < lx.n and lx.chars[lx.i] != "\n":
+            lx.i = lx.i + 1
+        if lx.i < lx.n:
+            lx.i = lx.i + 1
+        lx.ls = 1
+        return
+    emit_indent(lx, indent)
+
+fn emit_indent(lx: Lexer, indent: int):
+    let top = lx.indents[lx.indents.len() - 1]
+    if indent > top:
+        lx.indents.push(indent)
+        lpush(lx, "indent", "")
+    elif indent < top:
+        while lx.indents[lx.indents.len() - 1] > indent:
+            lx.indents.pop()
+            lpush(lx, "dedent", "")
+
+fn scan_token(lx: Lexer):
+    let c = lx.chars[lx.i]
+    if c == "#":
+        while lx.i < lx.n and lx.chars[lx.i] != "\n":
+            lx.i = lx.i + 1
+        return
+    if c == "\n":
+        lx.i = lx.i + 1
+        if lx.paren_depth == 0:
+            lpush(lx, "newline", "")
+        return
+    if c == " " or c == "\t":
+        lx.i = lx.i + 1
+        return
+    if c == "\"":
+        skip_string(lx)
+        lpush(lx, "str", "")
+        return
+    if is_digit(c):
+        scan_number(lx)
+        return
+    if is_alpha(c):
+        scan_ident(lx)
+        return
+    scan_operator(lx)
+
+fn scan_ident(lx: Lexer):
+    var word = ""
+    while lx.i < lx.n and is_alnum(lx.chars[lx.i]):
+        word += lx.chars[lx.i]
+        lx.i = lx.i + 1
+    if is_keyword(word):
+        lpush(lx, "kw", word)
+    else:
+        lpush(lx, "id", word)
+
+fn scan_number(lx: Lexer):
+    var num = ""
+    var is_float = false
+    while lx.i < lx.n and (is_digit(lx.chars[lx.i]) or lx.chars[lx.i] == "_"):
+        if lx.chars[lx.i] != "_":
+            num += lx.chars[lx.i]
+        lx.i = lx.i + 1
+    if lx.i < lx.n and lx.chars[lx.i] == "." and lx.i + 1 < lx.n and is_digit(lx.chars[lx.i + 1]):
+        is_float = true
+        lx.i = lx.i + 1
+        while lx.i < lx.n and is_digit(lx.chars[lx.i]):
+            lx.i = lx.i + 1
+    if is_float:
+        lpush(lx, "float", "")
+    else:
+        lpush(lx, "int", num)
+
+fn scan_operator(lx: Lexer):
+    let c = lx.chars[lx.i]
+    var pair = c
+    if lx.i + 1 < lx.n:
+        pair = c + lx.chars[lx.i + 1]
+    if lx.i + 1 < lx.n and two_char_op(pair):
+        lpush(lx, "op", pair)
+        lx.i = lx.i + 2
+        return
+    if c == "(" or c == "[":
+        lx.paren_depth += 1
+    elif c == ")" or c == "]":
+        if lx.paren_depth > 0:
+            lx.paren_depth -= 1
+    lpush(lx, "op", c)
+    lx.i = lx.i + 1
+
+fn scan_token_ls(lx: Lexer):
+    let before = lx.tokens.len()
+    scan_token(lx)
+    if lx.tokens.len() > before:
+        let last = lx.tokens[lx.tokens.len() - 1][0]
+        if last == "newline":
+            lx.ls = 1
+
+fn tokenize(source: str) -> [dyn]:
+    let lx = Lexer(source.chars(), source.chars().len(), 0, [0], 0, [], 1)
+    while lx.i < lx.n:
+        if lx.ls == 1 and lx.paren_depth == 0:
+            lx.ls = 0
+            handle_line_start(lx)
+            continue
+        scan_token_ls(lx)
+    finish(lx)
+    return lx.tokens
+
+fn finish(lx: Lexer):
+    if lx.tokens.len() > 0:
+        let last = lx.tokens[lx.tokens.len() - 1][0]
+        if last != "newline" and last != "indent" and last != "dedent":
+            lpush(lx, "newline", "")
+    while lx.indents.len() > 1:
+        lx.indents.pop()
+        lpush(lx, "dedent", "")
+    lpush(lx, "eof", "")
+
+type Parser:
+    toks: dyn
+    pos: int
+
+fn kind(p: Parser) -> str:
+    return p.toks[p.pos][0]
+
+fn text(p: Parser) -> str:
+    return p.toks[p.pos][1]
+
+fn kind_at(p: Parser, off: int) -> str:
+    let i = p.pos + off
+    if i >= p.toks.len():
+        return "eof"
+    return p.toks[i][0]
+
+fn text_at(p: Parser, off: int) -> str:
+    let i = p.pos + off
+    if i >= p.toks.len():
+        return ""
+    return p.toks[i][1]
+
+fn adv(p: Parser) -> dyn:
+    let t = p.toks[p.pos]
+    p.pos = p.pos + 1
+    return t
+
+fn at_kind(p: Parser, k: str) -> bool:
+    return kind(p) == k
+
+fn at_kw(p: Parser, w: str) -> bool:
+    return kind(p) == "kw" and text(p) == w
+
+fn at_op(p: Parser, s: str) -> bool:
+    return kind(p) == "op" and text(p) == s
+
+fn eat(p: Parser):
+    p.pos = p.pos + 1
+
+fn skip_newlines(p: Parser):
+    while at_kind(p, "newline"):
+        eat(p)
+
+fn parse_module(p: Parser) -> [str]:
+    var decls = []
+    skip_newlines(p)
+    while not at_kind(p, "eof"):
+        decls.push(parse_top_level(p))
+        skip_newlines(p)
+    return decls
+
+fn parse_top_level(p: Parser) -> str:
+    if at_kw(p, "import") or at_kw(p, "from"):
+        return parse_import(p)
+    if at_kw(p, "const"):
+        return parse_const(p)
+    if at_kw(p, "impl"):
+        return parse_impl(p)
+    if at_kw(p, "extern"):
+        return parse_extern(p)
+    var is_pub = "-"
+    if at_kw(p, "pub"):
+        eat(p)
+        is_pub = "pub"
+    if at_kw(p, "fn"):
+        return parse_function(p, is_pub)
+    if at_kw(p, "type"):
+        return parse_type_decl(p, is_pub)
+    if at_kw(p, "enum"):
+        return parse_enum(p, is_pub)
+    if at_kw(p, "trait"):
+        return parse_trait(p, is_pub)
+    eat(p)
+    return "(error)"
+
+fn parse_import(p: Parser) -> str:
+    if at_kw(p, "import"):
+        eat(p)
+        var path = text(p)
+        eat(p)
+        while at_op(p, "."):
+            eat(p)
+            path = path + " " + text(p)
+            eat(p)
+        var alias = "_"
+        if at_kw(p, "as"):
+            eat(p)
+            alias = text(p)
+            eat(p)
+        skip_stmt_end(p)
+        return "(import (path ${path}) ${alias} _)"
+    eat(p)
+    var path = text(p)
+    eat(p)
+    while at_op(p, "."):
+        eat(p)
+        path = path + " " + text(p)
+        eat(p)
+    eat(p)
+    var names = text(p)
+    eat(p)
+    while at_op(p, ","):
+        eat(p)
+        names = names + " " + text(p)
+        eat(p)
+    skip_stmt_end(p)
+    return "(import (path ${path}) _ (names ${names}))"
+
+fn skip_stmt_end(p: Parser):
+    if at_kind(p, "newline"):
+        eat(p)
+
+fn parse_const(p: Parser) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    var ty = "_"
+    if at_op(p, ":"):
+        eat(p)
+        ty = parse_type(p)
+    eat(p)
+    let value = parse_expr(p)
+    skip_stmt_end(p)
+    return "(const ${name} ${ty} ${value})"
+
+fn parse_generics(p: Parser) -> str:
+    if not at_op(p, "["):
+        return "(gen)"
+    eat(p)
+    var parts = parse_generic_param(p)
+    while at_op(p, ","):
+        eat(p)
+        parts = parts + " " + parse_generic_param(p)
+    eat(p)
+    return "(gen ${parts})"
+
+fn parse_generic_param(p: Parser) -> str:
+    let name = text(p)
+    eat(p)
+    if at_op(p, ":"):
+        eat(p)
+        var bounds = parse_type(p)
+        while at_op(p, "+"):
+            eat(p)
+            bounds = bounds + " " + parse_type(p)
+        return "(g ${name} ${bounds})"
+    return "(g ${name})"
+
+fn parse_params(p: Parser) -> str:
+    if at_op(p, ")"):
+        return "(params)"
+    var parts = parse_param(p)
+    while at_op(p, ","):
+        eat(p)
+        parts = parts + " " + parse_param(p)
+    return "(params ${parts})"
+
+fn parse_param(p: Parser) -> str:
+    let name = text(p)
+    eat(p)
+    if name == "self" and not at_op(p, ":"):
+        return "(p self _ _)"
+    eat(p)
+    let ty = parse_type(p)
+    var default = "_"
+    if at_op(p, "="):
+        eat(p)
+        default = parse_expr(p)
+    return "(p ${name} ${ty} ${default})"
+
+fn parse_function(p: Parser, is_pub: str) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    let generics = parse_generics(p)
+    eat(p)
+    let params = parse_params(p)
+    eat(p)
+    var ret = "_"
+    if at_op(p, "->"):
+        eat(p)
+        ret = parse_type(p)
+    let body = parse_block(p)
+    return "(fn ${is_pub} ${name} ${generics} ${params} ${ret} ${body})"
+
+fn parse_type_decl(p: Parser, is_pub: str) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    let generics = parse_generics(p)
+    eat(p)
+    skip_stmt_end(p)
+    eat(p)
+    var fields = ""
+    while not at_kind(p, "dedent"):
+        let fname = text(p)
+        eat(p)
+        eat(p)
+        let ftype = parse_type(p)
+        skip_stmt_end(p)
+        if fields == "":
+            fields = "(field ${fname} ${ftype})"
+        else:
+            fields = fields + " (field ${fname} ${ftype})"
+    eat(p)
+    let derives = parse_derive(p)
+    return "(type ${is_pub} ${name} ${generics} (${fields}) ${derives})"
+
+fn parse_enum(p: Parser, is_pub: str) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    let generics = parse_generics(p)
+    eat(p)
+    skip_stmt_end(p)
+    eat(p)
+    var variants = ""
+    while not at_kind(p, "dedent"):
+        let vname = text(p)
+        eat(p)
+        var types = ""
+        if at_op(p, "("):
+            eat(p)
+            types = " " + parse_type(p)
+            while at_op(p, ","):
+                eat(p)
+                types = types + " " + parse_type(p)
+            eat(p)
+        skip_stmt_end(p)
+        let v = "(variant ${vname}${types})"
+        if variants == "":
+            variants = v
+        else:
+            variants = variants + " " + v
+    eat(p)
+    let derives = parse_derive(p)
+    return "(enum ${is_pub} ${name} ${generics} (${variants}) ${derives})"
+
+fn parse_derive(p: Parser) -> str:
+    if not at_kw(p, "derive"):
+        return "(derive)"
+    eat(p)
+    eat(p)
+    var names = text(p)
+    eat(p)
+    while at_op(p, ","):
+        eat(p)
+        names = names + " " + text(p)
+        eat(p)
+    eat(p)
+    skip_stmt_end(p)
+    return "(derive ${names})"
+
+fn parse_trait(p: Parser, is_pub: str) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    let generics = parse_generics(p)
+    eat(p)
+    skip_stmt_end(p)
+    eat(p)
+    var methods = ""
+    while not at_kind(p, "dedent"):
+        eat(p)
+        let mname = text(p)
+        eat(p)
+        eat(p)
+        let params = parse_params(p)
+        eat(p)
+        var ret = "_"
+        if at_op(p, "->"):
+            eat(p)
+            ret = parse_type(p)
+        skip_stmt_end(p)
+        let m = "(method ${mname} ${params} ${ret})"
+        if methods == "":
+            methods = m
+        else:
+            methods = methods + " " + m
+    eat(p)
+    return "(trait ${is_pub} ${name} ${generics} (${methods}))"
+
+fn parse_impl(p: Parser) -> str:
+    eat(p)
+    let generics = parse_generics(p)
+    let first = parse_type(p)
+    var tr = "_"
+    var ty = first
+    if at_kw(p, "for"):
+        eat(p)
+        tr = first
+        ty = parse_type(p)
+    skip_stmt_end2(p)
+    eat(p)
+    var methods = ""
+    while not at_kind(p, "dedent"):
+        var mp = "-"
+        if at_kw(p, "pub"):
+            eat(p)
+            mp = "pub"
+        let m = parse_function(p, mp)
+        skip_newlines(p)
+        if methods == "":
+            methods = m
+        else:
+            methods = methods + " " + m
+    eat(p)
+    return "(impl ${generics} ${ty} ${tr} (${methods}))"
+
+fn skip_stmt_end2(p: Parser):
+    eat(p)
+    skip_stmt_end(p)
+
+fn parse_extern(p: Parser) -> str:
+    eat(p)
+    eat(p)
+    let name = text(p)
+    eat(p)
+    eat(p)
+    let params = parse_params(p)
+    eat(p)
+    var ret = "_"
+    if at_op(p, "->"):
+        eat(p)
+        ret = parse_type(p)
+    var lib = "_"
+    if at_kw(p, "from"):
+        eat(p)
+        lib = "lib"
+        eat(p)
+    skip_stmt_end(p)
+    return "(extern ${name} ${params} ${ret} ${lib})"
+
+fn parse_type(p: Parser) -> str:
+    var ty = parse_type_atom(p)
+    while at_op(p, "?"):
+        eat(p)
+        ty = "(optt ${ty})"
+    return ty
+
+fn parse_type_atom(p: Parser) -> str:
+    if at_kind(p, "id") and text(p) == "dyn":
+        eat(p)
+        return "dyn"
+    if at_op(p, "["):
+        eat(p)
+        let elem = parse_type(p)
+        eat(p)
+        return "(ltt ${elem})"
+    if at_op(p, "{"):
+        eat(p)
+        let k = parse_type(p)
+        eat(p)
+        let v = parse_type(p)
+        eat(p)
+        return "(dtt ${k} ${v})"
+    if at_op(p, "("):
+        eat(p)
+        var parts = ""
+        if not at_op(p, ")"):
+            parts = parse_type(p)
+            while at_op(p, ","):
+                eat(p)
+                parts = parts + " " + parse_type(p)
+        eat(p)
+        return "(ttt ${parts})"
+    if at_kw(p, "fn"):
+        eat(p)
+        eat(p)
+        var params = ""
+        if not at_op(p, ")"):
+            params = parse_type(p)
+            while at_op(p, ","):
+                eat(p)
+                params = params + " " + parse_type(p)
+        eat(p)
+        eat(p)
+        let rt = parse_type(p)
+        return "(fnt (${params}) ${rt})"
+    let name = text(p)
+    eat(p)
+    if at_op(p, "["):
+        eat(p)
+        var args = parse_type(p)
+        while at_op(p, ","):
+            eat(p)
+            args = args + " " + parse_type(p)
+        eat(p)
+        return "(gent ${name} ${args})"
+    return name
+
+fn parse_block(p: Parser) -> str:
+    eat(p)
+    skip_stmt_end(p)
+    eat(p)
+    var stmts = ""
+    while not at_kind(p, "dedent"):
+        let s = parse_statement(p)
+        skip_newlines(p)
+        if stmts == "":
+            stmts = s
+        else:
+            stmts = stmts + " " + s
+    eat(p)
+    if stmts == "":
+        return "(block)"
+    return "(block ${stmts})"
+
+fn parse_block_after_arrow(p: Parser) -> str:
+    skip_stmt_end(p)
+    eat(p)
+    var stmts = ""
+    while not at_kind(p, "dedent"):
+        let s = parse_statement(p)
+        skip_newlines(p)
+        if stmts == "":
+            stmts = s
+        else:
+            stmts = stmts + " " + s
+    eat(p)
+    if stmts == "":
+        return "(block)"
+    return "(block ${stmts})"
+
+fn parse_statement(p: Parser) -> str:
+    if at_kw(p, "let"):
+        return parse_let(p)
+    if at_kw(p, "var"):
+        return parse_var(p)
+    if at_kw(p, "return"):
+        return parse_return(p)
+    if at_kw(p, "break"):
+        eat(p)
+        skip_stmt_end(p)
+        return "(brk)"
+    if at_kw(p, "continue"):
+        eat(p)
+        skip_stmt_end(p)
+        return "(cnt)"
+    if at_kw(p, "defer"):
+        eat(p)
+        let e = parse_expr(p)
+        skip_stmt_end(p)
+        return "(defer ${e})"
+    if at_kw(p, "if"):
+        return parse_if(p)
+    if at_kw(p, "while"):
+        return parse_while(p)
+    if at_kw(p, "for"):
+        return parse_for(p)
+    if at_kw(p, "with"):
+        return parse_with(p)
+    if at_kw(p, "match"):
+        return parse_match(p)
+    return parse_expr_or_assign(p)
+
+fn parse_let(p: Parser) -> str:
+    eat(p)
+    let pat = parse_pattern(p)
+    var ty = "_"
+    if at_op(p, ":"):
+        eat(p)
+        ty = parse_type(p)
+    eat(p)
+    let value = parse_expr(p)
+    skip_stmt_end(p)
+    return "(let ${pat} ${ty} ${value})"
+
+fn parse_var(p: Parser) -> str:
+    eat(p)
+    let name = text(p)
+    eat(p)
+    var ty = "_"
+    if at_op(p, ":"):
+        eat(p)
+        ty = parse_type(p)
+    eat(p)
+    let value = parse_expr(p)
+    skip_stmt_end(p)
+    return "(var ${name} ${ty} ${value})"
+
+fn parse_return(p: Parser) -> str:
+    eat(p)
+    if at_kind(p, "newline"):
+        eat(p)
+        return "(ret)"
+    let value = parse_expr(p)
+    skip_stmt_end(p)
+    return "(ret ${value})"
+
+fn parse_if(p: Parser) -> str:
+    eat(p)
+    let cond = parse_expr(p)
+    let then = parse_block(p)
+    var elifs = ""
+    while at_kw(p, "elif"):
+        eat(p)
+        let ec = parse_expr(p)
+        let eb = parse_block(p)
+        let e = "(elif ${ec} ${eb})"
+        if elifs == "":
+            elifs = e
+        else:
+            elifs = elifs + " " + e
+    var orelse = "_"
+    if at_kw(p, "else"):
+        eat(p)
+        orelse = parse_block(p)
+    return "(if ${cond} ${then} (${elifs}) ${orelse})"
+
+fn parse_while(p: Parser) -> str:
+    eat(p)
+    let cond = parse_expr(p)
+    let body = parse_block(p)
+    return "(while ${cond} ${body})"
+
+fn parse_for(p: Parser) -> str:
+    eat(p)
+    let pat = parse_pattern(p)
+    eat(p)
+    let it = parse_expr(p)
+    let body = parse_block(p)
+    return "(for ${pat} ${it} ${body})"
+
+fn parse_with(p: Parser) -> str:
+    eat(p)
+    let e = parse_expr(p)
+    var alias = "_"
+    if at_kw(p, "as"):
+        eat(p)
+        alias = text(p)
+        eat(p)
+    let body = parse_block(p)
+    return "(with ${e} ${alias} ${body})"
+
+fn parse_match(p: Parser) -> str:
+    eat(p)
+    let subject = parse_expr(p)
+    eat(p)
+    skip_stmt_end(p)
+    eat(p)
+    var arms = ""
+    while not at_kind(p, "dedent"):
+        let pat = parse_pattern(p)
+        var guard = "_"
+        if at_kw(p, "if"):
+            eat(p)
+            guard = parse_expr(p)
+        eat(p)
+        var body = ""
+        if at_kind(p, "newline"):
+            body = parse_block_after_arrow(p)
+        else:
+            body = parse_expr(p)
+            skip_stmt_end(p)
+        let arm = "(arm ${pat} ${guard} ${body})"
+        skip_newlines(p)
+        if arms == "":
+            arms = arm
+        else:
+            arms = arms + " " + arm
+    eat(p)
+    return "(match ${subject} ${arms})"
+
+fn parse_pattern(p: Parser) -> str:
+    if at_kind(p, "id") and text(p) == "_":
+        eat(p)
+        return "_"
+    if at_kind(p, "int") or at_kind(p, "float") or at_kind(p, "str"):
+        return "(litp ${parse_primary(p)})"
+    if at_kw(p, "true") or at_kw(p, "false") or at_kw(p, "none"):
+        return "(litp ${parse_primary(p)})"
+    if at_op(p, "("):
+        eat(p)
+        var elems = parse_pattern(p)
+        while at_op(p, ","):
+            eat(p)
+            elems = elems + " " + parse_pattern(p)
+        eat(p)
+        return "(tp ${elems})"
+    let name = text(p)
+    eat(p)
+    if at_op(p, "("):
+        eat(p)
+        var args = parse_pattern(p)
+        while at_op(p, ","):
+            eat(p)
+            args = args + " " + parse_pattern(p)
+        eat(p)
+        return "(vp ${name} ${args})"
+    if is_upper(name):
+        return "(vp ${name})"
+    return name
+
+fn is_upper(name: str) -> bool:
+    let c = name.chars()[0]
+    return c >= "A" and c <= "Z"
+
+fn parse_expr_or_assign(p: Parser) -> str:
+    let expr = parse_expr(p)
+    if is_assign_op(p):
+        let op = text(p)
+        eat(p)
+        let value = parse_expr(p)
+        skip_stmt_end(p)
+        return "(asn ${op} ${expr} ${value})"
+    skip_stmt_end(p)
+    return "(expr ${expr})"
+
+fn is_assign_op(p: Parser) -> bool:
+    if kind(p) != "op":
+        return false
+    let t = text(p)
+    return t == "=" or t == "+=" or t == "-=" or t == "*=" or t == "/=" or t == "%="
+
+fn parse_expr(p: Parser) -> str:
+    if looks_like_lambda(p):
+        return parse_lambda(p)
+    return parse_ternary(p)
+
+fn looks_like_lambda(p: Parser) -> bool:
+    if at_kind(p, "id") and kind_at(p, 1) == "op" and text_at(p, 1) == "=>":
+        return true
+    if at_op(p, "("):
+        var depth = 0
+        var i = 0
+        while true:
+            let k = kind_at(p, i)
+            let t = text_at(p, i)
+            if k == "op" and t == "(":
+                depth += 1
+            elif k == "op" and t == ")":
+                depth -= 1
+                if depth == 0:
+                    return kind_at(p, i + 1) == "op" and text_at(p, i + 1) == "=>"
+            elif k == "newline" or k == "eof":
+                return false
+            i += 1
+    return false
+
+fn parse_lambda(p: Parser) -> str:
+    var params = ""
+    if at_kind(p, "id"):
+        params = "(p ${text(p)} _ _)"
+        eat(p)
+    else:
+        eat(p)
+        params = parse_lambda_params(p)
+        eat(p)
+    eat(p)
+    var body = ""
+    if at_op(p, "{"):
+        body = parse_brace_block(p)
+    else:
+        body = parse_expr(p)
+    if params == "":
+        return "(lam (params) ${body})"
+    return "(lam (params ${params}) ${body})"
+
+fn parse_lambda_params(p: Parser) -> str:
+    if at_op(p, ")"):
+        return ""
+    var parts = parse_lambda_param(p)
+    while at_op(p, ","):
+        eat(p)
+        parts = parts + " " + parse_lambda_param(p)
+    return parts
+
+fn parse_lambda_param(p: Parser) -> str:
+    let name = text(p)
+    eat(p)
+    var ty = "_"
+    if at_op(p, ":"):
+        eat(p)
+        ty = parse_type(p)
+    return "(p ${name} ${ty} _)"
+
+fn parse_brace_block(p: Parser) -> str:
+    eat(p)
+    skip_layout(p)
+    var stmts = ""
+    while not at_op(p, "}"):
+        let s = parse_statement(p)
+        skip_layout(p)
+        if stmts == "":
+            stmts = s
+        else:
+            stmts = stmts + " " + s
+    eat(p)
+    if stmts == "":
+        return "(block)"
+    return "(block ${stmts})"
+
+fn skip_layout(p: Parser):
+    while at_kind(p, "newline") or at_kind(p, "indent") or at_kind(p, "dedent"):
+        eat(p)
+
+fn parse_ternary(p: Parser) -> str:
+    let expr = parse_or(p)
+    if at_kw(p, "if"):
+        eat(p)
+        let cond = parse_or(p)
+        eat(p)
+        let orelse = parse_expr(p)
+        return "(ternary ${cond} ${expr} ${orelse})"
+    return expr
+
+fn parse_or(p: Parser) -> str:
+    var left = parse_and(p)
+    while at_kw(p, "or"):
+        eat(p)
+        let right = parse_and(p)
+        left = "(or ${left} ${right})"
+    return left
+
+fn parse_and(p: Parser) -> str:
+    var left = parse_not(p)
+    while at_kw(p, "and"):
+        eat(p)
+        let right = parse_not(p)
+        left = "(and ${left} ${right})"
+    return left
+
+fn parse_not(p: Parser) -> str:
+    if at_kw(p, "not"):
+        eat(p)
+        let operand = parse_not(p)
+        return "(not ${operand})"
+    return parse_compare(p)
+
+fn is_compare(p: Parser) -> bool:
+    if kind(p) != "op":
+        return false
+    let t = text(p)
+    return t == "==" or t == "!=" or t == "<" or t == "<=" or t == ">" or t == ">="
+
+fn parse_compare(p: Parser) -> str:
+    var left = parse_add(p)
+    while is_compare(p):
+        let op = text(p)
+        eat(p)
+        let right = parse_add(p)
+        left = "(${op} ${left} ${right})"
+    return left
+
+fn parse_add(p: Parser) -> str:
+    var left = parse_mul(p)
+    while at_op(p, "+") or at_op(p, "-"):
+        let op = text(p)
+        eat(p)
+        let right = parse_mul(p)
+        left = "(${op} ${left} ${right})"
+    return left
+
+fn parse_mul(p: Parser) -> str:
+    var left = parse_unary(p)
+    while at_op(p, "*") or at_op(p, "/") or at_op(p, "%"):
+        let op = text(p)
+        eat(p)
+        let right = parse_unary(p)
+        left = "(${op} ${left} ${right})"
+    return left
+
+fn parse_unary(p: Parser) -> str:
+    if at_op(p, "-"):
+        eat(p)
+        let operand = parse_unary(p)
+        return "(neg ${operand})"
+    return parse_postfix(p)
+
+fn parse_postfix(p: Parser) -> str:
+    var expr = parse_primary(p)
+    var going = true
+    while going:
+        if at_op(p, "("):
+            eat(p)
+            var args = ""
+            if not at_op(p, ")"):
+                args = parse_argument(p)
+                while at_op(p, ","):
+                    eat(p)
+                    args = args + " " + parse_argument(p)
+            eat(p)
+            if args == "":
+                expr = "(cll ${expr})"
+            else:
+                expr = "(cll ${expr} ${args})"
+        elif at_op(p, "["):
+            eat(p)
+            let index = parse_expr(p)
+            eat(p)
+            expr = "(idx ${expr} ${index})"
+        elif at_op(p, "."):
+            eat(p)
+            let name = text(p)
+            eat(p)
+            expr = "(att ${expr} ${name})"
+        elif at_op(p, "?"):
+            eat(p)
+            expr = "(try ${expr})"
+        else:
+            going = false
+    return expr
+
+fn parse_argument(p: Parser) -> str:
+    if at_kind(p, "id") and kind_at(p, 1) == "op" and text_at(p, 1) == "=":
+        let name = text(p)
+        eat(p)
+        eat(p)
+        let value = parse_expr(p)
+        return "(named ${name} ${value})"
+    return parse_expr(p)
+
+fn parse_primary(p: Parser) -> str:
+    if at_kind(p, "int"):
+        let t = text(p)
+        eat(p)
+        return t
+    if at_kind(p, "float"):
+        eat(p)
+        return "(flt)"
+    if at_kind(p, "str"):
+        eat(p)
+        return "(str)"
+    if at_kw(p, "true") or at_kw(p, "false"):
+        let t = text(p)
+        eat(p)
+        return t
+    if at_kw(p, "none"):
+        eat(p)
+        return "none"
+    if at_kind(p, "id"):
+        let t = text(p)
+        eat(p)
+        return t
+    if at_op(p, "["):
+        return parse_list(p)
+    if at_op(p, "{"):
+        return parse_dict(p)
+    if at_op(p, "("):
+        return parse_paren(p)
+    eat(p)
+    return "(error)"
+
+fn parse_list(p: Parser) -> str:
+    eat(p)
+    var items = ""
+    if not at_op(p, "]"):
+        items = parse_expr(p)
+        while at_op(p, ","):
+            eat(p)
+            if at_op(p, "]"):
+                break
+            items = items + " " + parse_expr(p)
+    eat(p)
+    if items == "":
+        return "(list)"
+    return "(list ${items})"
+
+fn parse_dict(p: Parser) -> str:
+    eat(p)
+    var pairs = ""
+    if not at_op(p, "}"):
+        pairs = parse_pair(p)
+        while at_op(p, ","):
+            eat(p)
+            if at_op(p, "}"):
+                break
+            pairs = pairs + " " + parse_pair(p)
+    eat(p)
+    if pairs == "":
+        return "(dict)"
+    return "(dict ${pairs})"
+
+fn parse_pair(p: Parser) -> str:
+    let k = parse_expr(p)
+    eat(p)
+    let v = parse_expr(p)
+    return "(pair ${k} ${v})"
+
+fn parse_paren(p: Parser) -> str:
+    eat(p)
+    let first = parse_expr(p)
+    if at_op(p, ","):
+        var elems = first
+        while at_op(p, ","):
+            eat(p)
+            if at_op(p, ")"):
+                break
+            elems = elems + " " + parse_expr(p)
+        eat(p)
+        return "(tuple ${elems})"
+    eat(p)
+    return first
+
+fn parse(source: str) -> [str]:
+    let p = Parser(tokenize(source), 0)
+    return parse_module(p)
+
+fn main():
+    match fs.read("input.ul"):
+        Ok(source) => emit(parse(source))
+        Err(e) => print("error: ${e}")
+
+fn emit(decls: [str]):
+    for d in decls:
+        print(d)

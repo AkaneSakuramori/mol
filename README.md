@@ -6,7 +6,7 @@ Ulang is a compiled, statically-typed programming language with type inference,
 structured concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **1.8.0** — self-hosting in progress (full layout-aware lexer + expression parser), cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
+> Status: **1.8.1** — self-hosting Stage 1 complete (full parser), cross-platform, optimizing compiler, garbage collector, package manager, and LSP.
 
 ## Features
 
@@ -119,13 +119,18 @@ Milestones so far:
    emits a canonical AST (as S-expressions), verified against the reference parser's AST.
 3. **Full layout-aware lexer** (`selfhost/lexer_full.ul`) — a complete lexer that produces
    the full token stream including significant indentation (`INDENT`/`DEDENT`/`NEWLINE`),
-   verified token-for-token against the reference lexer on every example program. This is
-   the foundation the self-hosted parser builds on.
+   verified token-for-token against the reference lexer on every example program.
+4. **Complete parser** (`selfhost/parser_full.ul`) — a full recursive-descent parser
+   covering **every language construct**: modules, functions, types, enums, traits,
+   `impl` blocks, generics with bounds, all statements and control flow, pattern matching,
+   lambdas, and the full expression grammar. Its syntax trees are verified **identical to
+   the reference parser** across all 23 example programs plus a stress corpus exercising
+   every construct, and it terminates cleanly on malformed input. This completes Stage 1
+   of the self-hosting roadmap.
 
 ```sh
-ulang run selfhost/lexer.ul          # tokenizes input.ul in the current directory
-echo "1 + 2 * 3" > input.txt
-ulang run selfhost/expr_parser.ul    # => (+ 1 (* 2 3))
+ulang run selfhost/lexer_full.ul     # full token stream for input.ul
+ulang run selfhost/parser_full.ul    # full syntax tree (S-expressions) for input.ul
 ```
 
 ## Optimizations
