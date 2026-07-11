@@ -141,4 +141,12 @@ def reloc_model(plat=None):
     return "pic"
 
 
+def llvm_triple_override(plat=None):
+    plat = plat or host_platform()
+    if plat.is_windows():
+        arch = "x86_64" if plat.arch in ("x86_64", "x86") else plat.arch
+        return f"{arch}-w64-windows-gnu"
+    return None
+
+
 HOST = host_platform()

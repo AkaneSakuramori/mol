@@ -98,7 +98,9 @@ class Interpreter:
 
     def _run(self, module):
         import sys as _sys
-        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
+        import bigstack
+        self.max_depth = bigstack.safe_max_depth(self.max_depth)
+        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), bigstack.python_recursion_limit()))
         self.cur_line = 0
         self.collect(module)
         main = self.functions.get("main")

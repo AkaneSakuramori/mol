@@ -103,7 +103,9 @@ class VM:
 
     def _run(self):
         import sys as _sys
-        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), self.max_depth * 40))
+        import bigstack
+        self.max_depth = bigstack.safe_max_depth(self.max_depth)
+        _sys.setrecursionlimit(max(_sys.getrecursionlimit(), bigstack.python_recursion_limit()))
         main = self.globals.get("main")
         if main is None:
             raise UlangPanic("no main function")

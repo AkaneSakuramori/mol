@@ -23,6 +23,10 @@ def compile_to_object(module_ast, opt_level=2, triple=None, reloc=None):
     import platform_abi
     _init()
     ir_module = generate_ir(module_ast)
+    if triple is None:
+        triple = platform_abi.llvm_triple_override()
+    if triple:
+        ir_module.triple = triple
     llvm_ir = str(ir_module)
     mod = llvm.parse_assembly(llvm_ir)
     mod.verify()
