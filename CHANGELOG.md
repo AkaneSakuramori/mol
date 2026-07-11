@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
 
 ### Added
 - Compiler optimizations (behavior-preserving, on by default, `ULANG_NO_OPT=1` to
