@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- Compiler optimizations (behavior-preserving, on by default, `ULANG_NO_OPT=1` to
+  disable): constant folding and propagation through immutable bindings, dead-branch and
+  dead-loop elimination, algebraic identities, constant string folding, and a bytecode
+  peephole pass. Verified to produce identical output on the interpreter and VM.
+- Self-hosting progress: a complete lexer written in Ulang (`selfhost/lexer.ul`) whose
+  output is conformance-tested against the reference lexer.
 - Package manager: `ulang install`, `add`, `remove`, `update`, `publish`, `search`,
   and `list`. Manifests (`ulang.toml`), lockfiles (`ulang.lock`) for reproducible
   builds, semantic-version constraints (`^`, `~`, ranges), a dependency resolver with

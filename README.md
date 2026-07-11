@@ -105,13 +105,32 @@ Run them with `python3 bench/benchmark.py`.
 
 ## Self-hosting
 
-`selfhost/tokenize.ul` is a lexer for Ulang **written in Ulang** — it tokenizes Ulang source
-into keywords, identifiers, integers, and operators. It demonstrates that the language
-is expressive enough to implement its own tooling.
+Ulang is progressing toward a self-hosted compiler — one written in Ulang itself. The
+current milestone is a **complete lexer written in Ulang** (`selfhost/lexer.ul`) whose
+token stream is verified, by conformance tests, to match the reference lexer exactly
+across keywords, identifiers, numbers, strings, comments, and operators.
 
 ```sh
-ulang run selfhost/tokenize.ul
+ulang run selfhost/lexer.ul      # tokenizes an input.ul in the current directory
 ```
+
+`selfhost/tokenize.ul` is an earlier, simpler demonstration. Each self-hosting stage is
+kept correct and testable before the next begins.
+
+## Optimizations
+
+The compiler applies behavior-preserving optimizations to every execution engine:
+
+- **Constant folding** — compile-time evaluation of constant expressions, using the same
+  arithmetic as the runtime so results are identical.
+- **Constant propagation** — immutable `let`/`const` bindings are substituted and folded.
+- **Dead-code elimination** — branches with constant conditions, `while false` loops, and
+  unreachable code are removed.
+- **Algebraic identities** — `x + 0`, `x * 1`, and similar simplifications.
+- **String folding** — constant concatenation and interpolation are precomputed.
+- **Bytecode peephole** — redundant jumps and unreachable instructions are removed.
+
+Optimizations are on by default; set `ULANG_NO_OPT=1` to disable them.
 
 ## Standard library
 
@@ -196,6 +215,7 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 - `src/checker.py` — name resolution and type inference.
 - `src/interpreter.py` — tree-walking evaluator.
 - `src/compiler.py`, `src/bytecode.py`, `src/vm.py` — bytecode compiler and stack VM.
+- `src/optimizer.py`, `src/peephole.py` — AST optimizations and bytecode peephole.
 - `src/codegen.py`, `src/native.py` — LLVM IR generation and native compilation.
 - `src/jit.py`, `src/tiered.py` — JIT engine and tiered execution.
 - `src/runtime.py` — tasks, nurseries, and channels.

@@ -20,6 +20,7 @@ SUITES = [
     "test_lsp.py",
     "test_packages.py",
     "test_optimizer.py",
+    "test_selfhost.py",
 ]
 
 
