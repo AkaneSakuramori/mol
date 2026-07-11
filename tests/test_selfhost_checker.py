@@ -77,6 +77,25 @@ TYPE_CASES = [
     "fn main():\n    let (p, q) = pair\n    print(p + q + r)\n",
     "fn main():\n    match v:\n        Ok((m, n)) => print(m + n + missing)\n        Err(e) => print(e)\n",
     "import math\nfn main():\n    print(math)\n    print(other)\n",
+    # --- pattern validation (variant existence + arity) ---
+    "enum E:\n    A\nfn main():\n    let e = A\n    match e:\n        Zzz => print(1)\n        A => print(2)\n",
+    "enum E:\n    A(int)\nfn main():\n    let e = A(1)\n    match e:\n        A(x, y) => print(1)\n",
+    "enum E:\n    A(int)\n    B\nfn main():\n    let e = B\n    match e:\n        A(x) => print(x)\n        B => print(0)\n",
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(a, b) => print(1)\n        None => print(0)\n",
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(v) => print(v)\n        None => print(0)\n",
+    "fn main():\n    let r = Ok(1)\n    match r:\n        Ok(x) => print(x)\n        Err(e) => print(e)\n",
+    "fn main():\n    match pair:\n        (a, b) => print(a)\n",
+    # --- exhaustiveness checking ---
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(v) => print(v)\n",
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(v) => print(v)\n        None => print(0)\n",
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(v) => print(v)\n        _ => print(0)\n",
+    "fn main():\n    let r = Ok(1)\n    match r:\n        Ok(x) => print(x)\n",
+    "fn main():\n    let r = Ok(1)\n    match r:\n        Ok(x) => print(x)\n        Err(e) => print(e)\n",
+    "enum E:\n    A\n    B\n    C\nfn main():\n    let e = A\n    match e:\n        A => print(1)\n        B => print(2)\n",
+    "enum E:\n    A\n    B\nfn main():\n    let e = A\n    match e:\n        A => print(1)\n        B => print(2)\n",
+    "fn main():\n    let o = Some(1)\n    match o:\n        Some(v) if v > 0 => print(v)\n        None => print(0)\n",
+    "enum Sh:\n    Circle(float)\n    Rect(float, float)\n    Point\nfn area(s: Sh) -> float:\n    match s:\n        Circle(r) => 1.0\n        Rect(w, h) => 2.0\n        Point => 0.0\n",
+    "enum Sh:\n    Circle(float)\n    Rect(float, float)\n    Point\nfn area(s: Sh) -> float:\n    match s:\n        Circle(r) => 1.0\n        Point => 0.0\n",
 ]
 
 

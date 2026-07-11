@@ -28,11 +28,12 @@ added here as they are completed and validated.
 - **Stage 2 — Semantic analysis: in progress.**
   - Name resolution and type checking (`checker.ul`): symbol and scope management,
     undefined-name detection, type inference, and type-mismatch diagnostics, in a single
-    walk mirroring the reference `src/checker.py`. Verified identical to the reference —
-    same diagnostics in the same order — across a type-checking corpus, all example
-    programs, and randomly generated typed programs (`tests/test_selfhost_checker.py`).
-    Remaining Stage-2 subsystems: pattern validation, exhaustiveness checking, visibility
-    analysis, and constant evaluation.
+    walk mirroring the reference `src/checker.py`. Also performs pattern validation
+    (unknown-variant and variant-arity diagnostics) and match exhaustiveness checking.
+    Verified identical to the reference — same diagnostics in the same order — across a
+    semantic corpus, all example programs, and randomly generated typed programs
+    (`tests/test_selfhost_checker.py`). Remaining Stage-2 subsystems: visibility/access
+    rules and constant evaluation.
 - **Stage 3 — Optimization and code generation: not started.**
 
 ## Running

@@ -98,6 +98,10 @@ fn builtin_fn(name: str) -> str:
         return "fn(bool) -> unit"
     if name == "assert_eq":
         return "fn(%dyn, %dyn) -> unit"
+    if name == "Some":
+        return "fn(%dyn) -> Option[%dyn]"
+    if name == "Ok" or name == "Err":
+        return "fn(%dyn) -> Result[%dyn, %dyn]"
     return ""
 
 fn is_builtin(name: str) -> bool:
@@ -370,7 +374,7 @@ fn check_let(ctx: Ctx, node: dyn, scope: dyn):
         if not compatible(declared, vtype):
             ctx.errors.push("type mismatch: expected ${declared}, got ${vtype}")
         bound = declared
-    bind_pattern(node[1], bound, scope)
+    bind_pattern(ctx, node[1], bound, scope)
 
 fn check_var(ctx: Ctx, node: dyn, scope: dyn):
     let vtype = infer(ctx, node[3], scope)
@@ -396,7 +400,7 @@ fn check_if(ctx: Ctx, node: dyn, scope: dyn):
 fn check_for(ctx: Ctx, node: dyn, scope: dyn):
     let it = infer(ctx, node[2], scope)
     var inner = copy_scope(scope)
-    bind_pattern_type(node[1], elem_type(it), inner)
+    bind_pattern_type(ctx, node[1], elem_type(it), inner)
     check_block(ctx, node[3], inner)
 
 fn elem_type(t: str) -> str:
@@ -421,12 +425,12 @@ fn check_with(ctx: Ctx, node: dyn, scope: dyn):
     check_block(ctx, node[3], inner)
 
 fn check_match(ctx: Ctx, node: dyn, scope: dyn):
-    infer(ctx, node[1], scope)
+    let subject = infer(ctx, node[1], scope)
     var i = 2
     while i < node.len():
         let arm = node[i]
         var inner = copy_scope(scope)
-        bind_pattern(arm[1], "%dyn", inner)
+        bind_pattern(ctx, arm[1], "%dyn", inner)
         if arm[2] != "_":
             infer(ctx, arm[2], inner)
         let body = arm[3]
@@ -435,25 +439,118 @@ fn check_match(ctx: Ctx, node: dyn, scope: dyn):
         else:
             infer(ctx, body, inner)
         i = i + 1
+    check_exhaustive(ctx, node, subject)
 
-fn bind_pattern(pat: dyn, ty: str, scope: dyn):
-    bind_pattern_type(pat, ty, scope)
+fn has_catchall(node: dyn) -> bool:
+    var i = 2
+    while i < node.len():
+        let arm = node[i]
+        if arm[2] == "_":
+            let pat = arm[1]
+            if is_atom(pat):
+                return true
+        i = i + 1
+    return false
 
-fn bind_pattern_type(pat: dyn, ty: str, scope: dyn):
+fn enum_variants(ctx: Ctx, subject: str) -> dyn:
+    var name = ""
+    if subject.len() >= 1 and subject.chars()[subject.len() - 1] == "?":
+        name = "Option"
+    elif starts_with_gen(subject, "Option["):
+        name = "Option"
+    elif starts_with_gen(subject, "Result["):
+        name = "Result"
+    else:
+        name = base_name(subject)
+    if name == "Option":
+        return ["Some", "None"]
+    if name == "Result":
+        return ["Ok", "Err"]
+    let e = lookup_enum(ctx, name)
+    if e.len() > 0:
+        return e
+    return []
+
+fn base_name(t: str) -> str:
+    let idx = find_bracket(t)
+    if idx >= 0:
+        return substring(t, 0, idx)
+    return t
+
+fn lookup_enum(ctx: Ctx, name: str) -> dyn:
+    var out = []
+    for v in ctx.variants:
+        if v[1] == name:
+            out.push(v[0])
+    return out
+
+fn check_exhaustive(ctx: Ctx, node: dyn, subject: str):
+    if has_catchall(node):
+        return
+    let variants = enum_variants(ctx, subject)
+    if variants.len() == 0:
+        return
+    var covered = []
+    var i = 2
+    while i < node.len():
+        let arm = node[i]
+        if arm[2] == "_":
+            let pat = arm[1]
+            if is_list(pat) and tag(pat) == "vp":
+                covered.push(pat[1])
+        i = i + 1
+    var missing = ""
+    for v in variants:
+        if not contains_str(covered, v):
+            if missing != "":
+                missing += ", "
+            missing += "'${v}'"
+    if missing != "":
+        ctx.errors.push("non-exhaustive match: missing ${missing}")
+
+fn bind_pattern(ctx: Ctx, pat: dyn, ty: str, scope: dyn):
+    bind_pattern_type(ctx, pat, ty, scope)
+
+fn variant_arity(ctx: Ctx, name: str) -> int:
+    if name == "Some":
+        return 1
+    if name == "None":
+        return 0
+    if name == "Ok":
+        return 1
+    if name == "Err":
+        return 1
+    let vt = lookup(ctx.variants, name)
+    if vt.len() > 0:
+        return vt[2].len()
+    return -1
+
+fn validate_variant_pattern(ctx: Ctx, pat: dyn):
+    let name = pat[1]
+    let arity = variant_arity(ctx, name)
+    let nargs = pat.len() - 2
+    if arity < 0:
+        ctx.errors.push("unknown variant '${name}'")
+        return
+    if nargs != arity:
+        ctx.errors.push("variant '${name}' expects ${arity} field(s), got ${nargs}")
+
+fn bind_pattern_type(ctx: Ctx, pat: dyn, ty: str, scope: dyn):
     if is_atom(pat):
         if pat != "_":
             scope.push([pat, ty])
         return
     let t = tag(pat)
     if t == "vp":
+        validate_variant_pattern(ctx, pat)
         var i = 2
         while i < pat.len():
-            bind_pattern_type(pat[i], "%dyn", scope)
+            bind_pattern_type(ctx, pat[i], "%dyn", scope)
             i = i + 1
     elif t == "tp":
         var i = 1
         while i < pat.len():
-            bind_pattern_type(pat[i], "%dyn", scope)
+            bind_pattern_type(ctx, pat[i], "%dyn", scope)
             i = i + 1
 
 # --- inference ---
@@ -529,6 +626,8 @@ fn infer_atom(ctx: Ctx, node: str, scope: dyn) -> str:
     let f = lookup(ctx.functions, node)
     if f.len() > 0:
         return f[1]
+    if node == "None":
+        return "Option[%dyn]"
     if is_builtin(node):
         let bf = builtin_fn(node)
         if bf != "":

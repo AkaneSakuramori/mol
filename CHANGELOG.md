@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.8.4
+
+### Added
+- **Semantic analysis — pattern validation and exhaustiveness checking**, implemented in
+  both the reference compiler (`src/checker.py`, the specification) and the self-hosted
+  compiler (`selfhost/compiler/checker.ul`), and proven equivalent.
+  - Pattern validation: a variant pattern referencing an unknown variant, or with the
+    wrong number of fields, is reported (`unknown variant 'X'`,
+    `variant 'X' expects N field(s), got M`). Recognizes user enum variants and the
+    built-in `Some`/`None`/`Ok`/`Err`.
+  - Exhaustiveness checking: a `match` on a known enum type (a user `enum`, `Option`, or
+    `Result`) that omits variants without a catch-all arm is reported
+    (`non-exhaustive match: missing 'X', 'Y'`). Guarded arms do not count toward coverage.
+- Validation (`tests/test_selfhost_checker.py`) covers both subsystems and confirms the
+  self-hosted checker emits identical diagnostics to the reference across a semantic
+  corpus, all example programs, and randomly generated programs.
+
+### Notes
+- These are additive diagnostics surfaced by `ulang check`; runtime behavior is unchanged
+  (`ulang run` does not gate on the checker), and all example programs remain valid. The
+  self-hosted and reference checkers were extended together to stay equivalent.
+
 ## 1.8.3
 
 ### Added

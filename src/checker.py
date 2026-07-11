@@ -348,6 +348,43 @@ class Checker:
                 self.check_block(arm.body, arm_scope)
             else:
                 self.infer(arm.body, arm_scope)
+        self._check_exhaustive(node, subject)
+
+    def _enum_variants(self, subject):
+        subject = prune(subject)
+        name = None
+        if isinstance(subject, OptionalT):
+            name = "Option"
+        elif isinstance(subject, NamedT):
+            name = subject.name
+        if name == "Option":
+            return ["Some", "None"]
+        if name == "Result":
+            return ["Ok", "Err"]
+        if name in self.enums:
+            return [v.name for v in self.enums[name].variants]
+        return None
+
+    def _check_exhaustive(self, node, subject):
+        for arm in node.arms:
+            if arm.guard is not None:
+                continue
+            p = arm.pattern
+            if isinstance(p, (ast.WildcardPattern, ast.BindPattern)):
+                return
+        variants = self._enum_variants(subject)
+        if variants is None:
+            return
+        covered = set()
+        for arm in node.arms:
+            if arm.guard is not None:
+                continue
+            if isinstance(arm.pattern, ast.VariantPattern):
+                covered.add(arm.pattern.name)
+        missing = [v for v in variants if v not in covered]
+        if missing:
+            names = ", ".join(f"'{m}'" for m in missing)
+            self.error(f"non-exhaustive match: missing {names}", node)
 
     def st_Break(self, node, scope):
         pass
@@ -367,6 +404,7 @@ class Checker:
         elif isinstance(pattern, ast.WildcardPattern):
             pass
         elif isinstance(pattern, ast.VariantPattern):
+            self._validate_variant_pattern(pattern)
             info = self.variants.get(pattern.name)
             for i, sub in enumerate(pattern.args):
                 sub_t = DYN
@@ -379,6 +417,26 @@ class Checker:
             elems = t.elements if isinstance(t, TupleT) else [DYN] * len(pattern.elements)
             for sub, et in zip(pattern.elements, elems):
                 self.bind_pattern(sub, et, scope)
+
+    def _variant_arity(self, name):
+        builtins = {"Some": 1, "None": 0, "Ok": 1, "Err": 1}
+        if name in builtins:
+            return builtins[name]
+        info = self.variants.get(name)
+        if info is not None:
+            return len(info[1].types)
+        return None
+
+    def _validate_variant_pattern(self, pattern):
+        arity = self._variant_arity(pattern.name)
+        if arity is None:
+            self.error(f"unknown variant '{pattern.name}'", pattern)
+            return
+        if len(pattern.args) != arity:
+            self.error(
+                f"variant '{pattern.name}' expects {arity} field(s), got {len(pattern.args)}",
+                pattern,
+            )
 
     def infer(self, node, scope):
         method = getattr(self, "in_" + type(node).__name__, None)
