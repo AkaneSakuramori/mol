@@ -43,11 +43,12 @@ def native_type(node):
 
 
 class ModuleGen:
-    def __init__(self, name="mol"):
+    def __init__(self, name="mol", emit_entry=True):
         self.module = ir.Module(name=name)
         self.module.triple = ""
         self.functions = {}
         self.signatures = {}
+        self.emit_entry = emit_entry
         self._declare_runtime()
 
     def _declare_runtime(self):
@@ -87,7 +88,8 @@ class ModuleGen:
         for decl in module_ast.body:
             if isinstance(decl, ast.Function):
                 self._define(decl)
-        self._emit_entry()
+        if self.emit_entry:
+            self._emit_entry()
         return self.module
 
     def _emit_entry(self):

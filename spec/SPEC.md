@@ -1,6 +1,6 @@
-# Mol Language Specification — v0
+# Mol Language Specification — v1.0
 
-Status: frozen for Step 1. This is the contract the compiler is built against.
+Status: stable for the 1.0 release. This is the contract the compiler is built against.
 
 ## 1. Overview
 

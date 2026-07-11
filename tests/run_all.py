@@ -13,6 +13,7 @@ SUITES = [
     "test_native.py",
     "test_runtime.py",
     "test_stdlib.py",
+    "test_jit.py",
 ]
 
 

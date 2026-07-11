@@ -12,6 +12,8 @@ from vm import VM
 from builtins_mod import MolPanic
 import ast_nodes as ast
 
+VERSION = "1.0.0"
+
 
 def _dump(node, indent=0):
     pad = "  " * indent
@@ -204,11 +206,36 @@ version = "0.1.0"
     return 0
 
 
+def cmd_jit(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    from tiered import JITInterpreter
+    interp = JITInterpreter(threshold=1)
+    try:
+        interp.run(tree)
+    except MolPanic as e:
+        print(f"panic: {e.message}", file=sys.stderr)
+        return 1
+    stats = interp.jit_stats
+    if stats["compiled"]:
+        print(f"[jit] native calls: {stats['native_calls']}, compiled: {', '.join(sorted(stats['compiled']))}",
+              file=sys.stderr)
+    return 0
+
+
 def main(argv):
     if len(argv) < 2:
-        print("usage: mol <lex|parse|check|run|runvm|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
+        print("usage: mol <lex|parse|check|run|runvm|jit|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
         return 2
     command = argv[1]
+    if command in ("version", "--version", "-v"):
+        print(f"mol {VERSION}")
+        return 0
     if command == "repl":
         from repl import repl
         return repl()
@@ -228,6 +255,8 @@ def main(argv):
         return cmd_run(argv[2])
     if command == "runvm":
         return cmd_runvm(argv[2])
+    if command == "jit":
+        return cmd_jit(argv[2])
     if command == "build":
         output = argv[4] if len(argv) > 4 and argv[3] == "-o" else None
         return cmd_build(argv[2], output)

@@ -1,0 +1,51 @@
+fn is_digit(c: str) -> bool:
+    return c >= "0" and c <= "9"
+
+fn is_alpha(c: str) -> bool:
+    return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+
+fn is_space(c: str) -> bool:
+    return c == " " or c == "\t" or c == "\n"
+
+fn is_keyword(word: str) -> bool:
+    let keywords = ["fn", "let", "var", "if", "else", "return", "while", "for", "match"]
+    for kw in keywords:
+        if kw == word:
+            return true
+    return false
+
+fn tokenize(source: str) -> [str]:
+    let chars = source.chars()
+    let n = chars.len()
+    var tokens = []
+    var i = 0
+    while i < n:
+        let c = chars[i]
+        if is_space(c):
+            i += 1
+        elif is_alpha(c):
+            var word = ""
+            while i < n and (is_alpha(chars[i]) or is_digit(chars[i])):
+                word += chars[i]
+                i += 1
+            if is_keyword(word):
+                tokens.push("KEYWORD:${word}")
+            else:
+                tokens.push("IDENT:${word}")
+        elif is_digit(c):
+            var num = ""
+            while i < n and is_digit(chars[i]):
+                num += chars[i]
+                i += 1
+            tokens.push("INT:${num}")
+        else:
+            tokens.push("OP:${c}")
+            i += 1
+    return tokens
+
+fn main():
+    let source = "fn add(a, b): return a + b"
+    let tokens = tokenize(source)
+    for tok in tokens:
+        print(tok)
+    print("count: ${tokens.len()}")
