@@ -1,0 +1,98 @@
+import fs
+
+# Package export analysis.
+#
+# Computes the public API a module exposes to importers — exactly the set the
+# runtime package loader (src/loader.py) makes available. A module exports:
+#   - pub functions           -> the function name
+#   - pub types               -> the type name
+#   - pub enums               -> each variant name
+#   - consts                  -> the const name (always exported)
+# Everything else (non-pub fn/type/enum, imports, externs, impls, traits) is private.
+
+fn read_sexpr(text: str) -> dyn:
+    let chars = text.chars()
+    let state = [chars, chars.len(), 0]
+    return parse_node(state)
+
+fn cur(state: dyn) -> str:
+    if state[2] >= state[1]:
+        return ""
+    return state[0][state[2]]
+
+fn parse_node(state: dyn) -> dyn:
+    skip_ws(state)
+    if cur(state) == "(":
+        state[2] = state[2] + 1
+        var items = []
+        while true:
+            skip_ws(state)
+            if cur(state) == ")":
+                state[2] = state[2] + 1
+                return items
+            if cur(state) == "":
+                return items
+            items.push(parse_node(state))
+        return items
+    return parse_atom(state)
+
+fn parse_atom(state: dyn) -> str:
+    var s = ""
+    while state[2] < state[1]:
+        let c = state[0][state[2]]
+        if c == " " or c == "(" or c == ")":
+            break
+        s += c
+        state[2] = state[2] + 1
+    return s
+
+fn skip_ws(state: dyn):
+    while state[2] < state[1] and state[0][state[2]] == " ":
+        state[2] = state[2] + 1
+
+fn is_atom(node: dyn) -> bool:
+    return not is_list(node)
+
+fn tag(node: dyn) -> str:
+    if is_list(node):
+        if node.len() == 0:
+            return ""
+        return node[0]
+    return node
+
+fn exports(module: dyn) -> [str]:
+    var out = []
+    for decl in module:
+        let t = tag(decl)
+        if t == "fn":
+            if decl[1] == "pub":
+                out.push(decl[2])
+        elif t == "type":
+            if decl[1] == "pub":
+                out.push(decl[2])
+        elif t == "enum":
+            if decl[1] == "pub":
+                collect_variants(decl, out)
+        elif t == "const":
+            out.push(decl[1])
+    return out
+
+fn collect_variants(decl: dyn, out: dyn):
+    let variants = decl[4]
+    if is_list(variants):
+        for v in variants:
+            if is_list(v):
+                out.push(v[1])
+
+fn main():
+    match fs.read("tree.sexpr"):
+        Ok(text) => run_exports(text)
+        Err(e) => print("error: ${e}")
+
+fn run_exports(text: str):
+    var module = []
+    for line in text.split("\n"):
+        if line.trim() != "":
+            module.push(read_sexpr(line))
+    for name in exports(module):
+        print(name)

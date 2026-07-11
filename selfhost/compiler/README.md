@@ -14,6 +14,7 @@ compiler/
   lexer.ul       source text  -> token stream (with significant-indentation layout)
   parser.ul      token stream -> syntax tree
   checker.ul     syntax tree  -> semantic diagnostics (name resolution + type checking)
+  exports.ul     syntax tree  -> a module's public API (visibility / package exports)
 ```
 
 Later stages (the rest of semantic analysis, then optimization and code generation) are
@@ -27,13 +28,15 @@ added here as they are completed and validated.
   (`tests/test_selfhost_lexer.py`, `tests/test_selfhost_parser.py`).
 - **Stage 2 — Semantic analysis: in progress.**
   - Name resolution and type checking (`checker.ul`): symbol and scope management,
-    undefined-name detection, type inference, and type-mismatch diagnostics, in a single
-    walk mirroring the reference `src/checker.py`. Also performs pattern validation
-    (unknown-variant and variant-arity diagnostics) and match exhaustiveness checking.
-    Verified identical to the reference — same diagnostics in the same order — across a
-    semantic corpus, all example programs, and randomly generated typed programs
-    (`tests/test_selfhost_checker.py`). Remaining Stage-2 subsystems: visibility/access
-    rules and constant evaluation.
+    undefined-name detection, type inference, type-mismatch diagnostics, pattern
+    validation (unknown-variant and arity), and match exhaustiveness checking, in a single
+    walk mirroring the reference `src/checker.py`. Verified identical to the reference —
+    same diagnostics in the same order — across a semantic corpus, all example programs,
+    and randomly generated typed programs (`tests/test_selfhost_checker.py`).
+  - Visibility / package exports (`exports.ul`): computes a module's public API — the set
+    the runtime package loader (`src/loader.py`) exposes to importers — and is verified
+    identical to it (`tests/test_selfhost_exports.py`). Remaining Stage-2 subsystem:
+    constant evaluation.
 - **Stage 3 — Optimization and code generation: not started.**
 
 ## Running

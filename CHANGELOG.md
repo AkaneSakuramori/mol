@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.5
+
+### Added
+- **Semantic analysis — visibility / package exports** (`selfhost/compiler/exports.ul`).
+  The self-hosted compiler now computes a module's public API — the exact set of names the
+  runtime package loader (`src/loader.py`) exposes to importers: `pub` functions and types,
+  the variants of `pub` enums, and all consts; everything else (non-`pub` items, imports,
+  externs, impls, traits) is private.
+- Validation (`tests/test_selfhost_exports.py`): the self-hosted export set is verified
+  identical to the reference loader's across a corpus of module shapes and all example
+  programs.
+
+### Notes
+- This is the visibility/access-control subsystem: in Ulang, access control is enforced at
+  package boundaries by the loader (a private item is simply absent from an imported
+  module), and the self-hosted `exports.ul` reproduces that boundary exactly. Only constant
+  evaluation remains before Stage 2 is complete.
+
 ## 1.8.4
 
 ### Added
