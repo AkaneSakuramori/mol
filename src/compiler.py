@@ -383,7 +383,9 @@ def compile_module(module):
     for decl in module.body:
         if isinstance(decl, ast.Function):
             fc = FunctionCompiler(decl.name, decl.params, program)
-            program.functions[decl.name] = fc.compile_body(decl.body)
+            code = fc.compile_body(decl.body)
+            from peephole import peephole
+            program.functions[decl.name] = peephole(code)
         elif isinstance(decl, ast.Const):
             program.consts.append(decl)
     return program

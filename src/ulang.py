@@ -12,7 +12,14 @@ from vm import VM
 from builtins_mod import UlangPanic
 import ast_nodes as ast
 
-VERSION = "1.0.0"
+VERSION = "1.4.0"
+
+
+def _optimize(tree):
+    if os.environ.get("ULANG_NO_OPT"):
+        return tree
+    from optimizer import optimize_module
+    return optimize_module(tree)
 
 
 def _dump(node, indent=0):
@@ -83,7 +90,7 @@ def cmd_run(path):
     try:
         interp = Interpreter()
         interp.search_roots = _project_roots(path)
-        interp.run(tree)
+        interp.run(_optimize(tree))
     except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
@@ -116,7 +123,7 @@ def cmd_runvm(path):
         print(f"error: {path}: {e}", file=sys.stderr)
         return 1
     try:
-        VM(compile_module(tree)).run()
+        VM(compile_module(_optimize(tree))).run()
     except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
@@ -136,7 +143,7 @@ def cmd_build(path, output=None):
     if output is None:
         output = os.path.splitext(os.path.basename(path))[0]
     try:
-        build_executable(tree, output, keep_ir=True)
+        build_executable(_optimize(tree), output, keep_ir=True)
     except CodegenError as e:
         print(f"error: {path}: native backend: {e}", file=sys.stderr)
         return 1
@@ -158,7 +165,7 @@ def cmd_emit_ir(path):
     from native import emit_ir
     from codegen import CodegenError
     try:
-        print(emit_ir(tree))
+        print(emit_ir(_optimize(tree)))
     except CodegenError as e:
         print(f"error: {path}: native backend: {e}", file=sys.stderr)
         return 1
@@ -316,7 +323,7 @@ def cmd_jit(path):
     from tiered import JITInterpreter
     interp = JITInterpreter(threshold=1)
     try:
-        interp.run(tree)
+        interp.run(_optimize(tree))
     except UlangPanic as e:
         print(f"panic: {e.message}", file=sys.stderr)
         return 1
