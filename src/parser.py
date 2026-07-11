@@ -94,6 +94,8 @@ class Parser:
             return self.parse_const()
         if self.at_keyword("impl"):
             return self.parse_impl()
+        if self.at_keyword("extern"):
+            return self.parse_extern()
         is_pub = False
         if self.at_keyword("pub"):
             self.advance()
@@ -134,6 +136,26 @@ class Parser:
             self.advance()
             parts.append(self.expect(T.IDENT).value)
         return parts
+
+    def parse_extern(self):
+        self.expect_keyword("extern")
+        self.expect_keyword("fn")
+        name = self.expect(T.IDENT).value
+        self.expect(T.LPAREN)
+        params = self.parse_params()
+        self.expect(T.RPAREN)
+        return_type = None
+        if self.at(T.ARROW):
+            self.advance()
+            return_type = self.parse_type()
+        library = None
+        if self.at_keyword("from"):
+            self.advance()
+            lib_tok = self.expect(T.STRING)
+            library = "".join(v for k, v in lib_tok.value if k == "str")
+        self.expect(T.NEWLINE)
+        return ast.ExternFn(name=name, params=params, return_type=return_type,
+                            c_name=name, library=library)
 
     def parse_const(self):
         self.expect_keyword("const")

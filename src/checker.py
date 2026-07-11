@@ -157,6 +157,12 @@ class Checker:
             "None": NamedT("Option", [DYN]),
             "Ok": FnT([DYN], NamedT("Result", [DYN, DYN])),
             "Err": FnT([DYN], NamedT("Result", [DYN, DYN])),
+            "spawn": FnT([DYN], DYN),
+            "sleep": FnT([INT], UNIT),
+            "channel": FnT([], DYN),
+            "nursery": FnT([], DYN),
+            "assert": FnT([BOOL], UNIT),
+            "assert_eq": FnT([DYN, DYN], UNIT),
         }
 
     def check(self, module):
@@ -183,6 +189,8 @@ class Checker:
             elif isinstance(decl, ast.TraitDecl):
                 self.traits[decl.name] = decl
             elif isinstance(decl, ast.Function):
+                self.functions[decl.name] = self.fn_type(decl)
+            elif isinstance(decl, ast.ExternFn):
                 self.functions[decl.name] = self.fn_type(decl)
             elif isinstance(decl, ast.ImplDecl):
                 self.register_impl(decl)

@@ -148,14 +148,73 @@ def cmd_emit_ir(path):
     return 0
 
 
+def cmd_escape(path):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        tree = parse(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    from escape import analyze
+    results = analyze(tree)
+    for fn_name, fe in results.items():
+        decisions = fe.decisions()
+        if not decisions:
+            continue
+        print(f"fn {fn_name}:")
+        for var, where in decisions:
+            print(f"    {var}: {where}")
+    return 0
+
+
+def cmd_fmt(path, write=False):
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    try:
+        from formatter import format_source
+        formatted = format_source(source)
+    except (LexError, ParseError) as e:
+        print(f"error: {path}: {e}", file=sys.stderr)
+        return 1
+    if write:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(formatted)
+        print(f"formatted {path}")
+    else:
+        sys.stdout.write(formatted)
+    return 0
+
+
+def cmd_init(name):
+    manifest = f"""[package]
+name = "{name}"
+version = "0.1.0"
+
+[dependencies]
+"""
+    with open("mol.toml", "w", encoding="utf-8") as f:
+        f.write(manifest)
+    os.makedirs("src", exist_ok=True)
+    main_path = os.path.join("src", "main.mol")
+    if not os.path.exists(main_path):
+        with open(main_path, "w", encoding="utf-8") as f:
+            f.write('fn main():\n    print("hello from ' + name + '")\n')
+    print(f"created mol.toml and src/main.mol for '{name}'")
+    return 0
+
+
 def main(argv):
     if len(argv) < 2:
-        print("usage: mol <lex|parse|check|run|runvm|build|emit-ir|repl> <file.mol>", file=sys.stderr)
+        print("usage: mol <lex|parse|check|run|runvm|build|emit-ir|escape|fmt|init|repl> ...", file=sys.stderr)
         return 2
     command = argv[1]
     if command == "repl":
         from repl import repl
         return repl()
+    if command == "init":
+        name = argv[2] if len(argv) > 2 else "app"
+        return cmd_init(name)
     if len(argv) < 3:
         print(f"usage: mol {command} <file.mol>", file=sys.stderr)
         return 2
@@ -174,6 +233,11 @@ def main(argv):
         return cmd_build(argv[2], output)
     if command == "emit-ir":
         return cmd_emit_ir(argv[2])
+    if command == "escape":
+        return cmd_escape(argv[2])
+    if command == "fmt":
+        write = "-w" in argv[3:]
+        return cmd_fmt(argv[2], write)
     print(f"unknown command: {command}", file=sys.stderr)
     return 2
 

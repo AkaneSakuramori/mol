@@ -57,6 +57,8 @@ and or not true false none
 - `enum Name:` — variants, each optionally carrying a tuple of types.
 - `trait Name:` — set of method signatures.
 - `impl Type:` or `impl Trait for Type:` — method implementations.
+- `extern fn name(params) -> Ret from "lib"` — declares a foreign C function bound at
+  runtime through the FFI. The library name is resolved by the platform loader.
 - In trait and `impl` methods, a leading `self` parameter is the receiver and needs no
   type annotation; its type is the implementing type.
 

@@ -1,4 +1,6 @@
 import math as _math
+import time as _time
+import random as _random
 
 import values as V
 from values import Module, Builtin, Struct, some, ok, err, NONE, mol_str
@@ -117,10 +119,53 @@ MATH = Module("math", {
 })
 
 
+TIME = Module("time", {
+    "now": Builtin("now", lambda a: _time.time()),
+    "now_ms": Builtin("now_ms", lambda a: int(_time.time() * 1000)),
+    "sleep": Builtin("sleep", lambda a: _sleep_ms(a[0])),
+})
+
+STR = Module("str", {
+    "from_int": Builtin("from_int", lambda a: str(a[0])),
+    "to_int": Builtin("to_int", lambda a: _parse_int(a[0])),
+    "repeat": Builtin("repeat", lambda a: a[0] * a[1]),
+    "join": Builtin("join", lambda a: a[0].join(mol_str(x) for x in a[1])),
+})
+
+RANDOM = Module("random", {
+    "int": Builtin("int", lambda a: _random.randint(a[0], a[1] - 1)),
+    "float": Builtin("float", lambda a: _random.random()),
+    "choice": Builtin("choice", lambda a: _random.choice(a[0])),
+    "seed": Builtin("seed", lambda a: _random.seed(a[0])),
+})
+
+LIST = Module("list", {
+    "range": Builtin("range", lambda a: list(range(a[0], a[1]))),
+    "repeat": Builtin("repeat", lambda a: [a[0]] * a[1]),
+    "concat": Builtin("concat", lambda a: a[0] + a[1]),
+})
+
+
+def _sleep_ms(ms):
+    _time.sleep(ms / 1000.0)
+    return None
+
+
+def _parse_int(s):
+    try:
+        return ok(int(s))
+    except ValueError:
+        return err(f"invalid int: {s}")
+
+
 MODULES = {
     "fs": FS,
     "json": JSON,
     "math": MATH,
+    "time": TIME,
+    "str": STR,
+    "random": RANDOM,
+    "list": LIST,
 }
 
 

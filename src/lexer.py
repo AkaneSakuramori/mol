@@ -49,7 +49,7 @@ class TokenType(Enum):
 KEYWORDS = {
     "fn", "let", "var", "const", "type", "enum", "trait", "impl", "derive",
     "pub", "import", "from", "as", "if", "elif", "else", "match", "while",
-    "for", "in", "with", "defer", "return", "break", "continue",
+    "for", "in", "with", "defer", "return", "break", "continue", "extern",
     "and", "or", "not", "true", "false", "none",
 }
 

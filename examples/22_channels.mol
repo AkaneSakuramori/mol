@@ -1,0 +1,13 @@
+fn produce(ch: dyn):
+    ch.send(10)
+    ch.send(20)
+    ch.send(30)
+
+fn main():
+    let ch = channel()
+    with nursery() as g:
+        g.spawn(() => produce(ch))
+        var total = 0
+        for i in range(0, 3):
+            total += ch.recv()
+        print(total)

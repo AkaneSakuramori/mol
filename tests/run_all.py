@@ -11,6 +11,8 @@ SUITES = [
     "test_interpreter.py",
     "test_vm.py",
     "test_native.py",
+    "test_runtime.py",
+    "test_stdlib.py",
 ]
 
 

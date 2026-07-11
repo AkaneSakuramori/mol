@@ -1,0 +1,6 @@
+extern fn sqrt(x: float) -> float from "m"
+extern fn abs(x: int) -> int from "c"
+
+fn main():
+    print(sqrt(16.0))
+    print(abs(-42))

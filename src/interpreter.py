@@ -3,6 +3,7 @@ import values as V
 from values import Struct, Variant, Closure, Builtin, BoundMethod, some, ok, err, NONE, mol_str
 from builtins_mod import BUILTINS, get_method, MolPanic
 import stdlib
+import runtime
 
 
 class Environment:
@@ -61,6 +62,7 @@ class Interpreter:
         self.functions = {}
         for name, val in BUILTINS.items():
             self.globals.set(name, val)
+        runtime.install(self)
 
     def run(self, module):
         self.collect(module)
@@ -90,6 +92,15 @@ class Interpreter:
                 self.traits[decl.name] = decl
             elif isinstance(decl, ast.Import):
                 self.exec_import(decl)
+            elif isinstance(decl, ast.ExternFn):
+                self.register_extern(decl)
+
+    def register_extern(self, decl):
+        import ffi
+        try:
+            self.globals.set(decl.name, ffi.make_extern(decl))
+        except (OSError, AttributeError) as e:
+            raise MolPanic(f"extern '{decl.name}': {e}")
 
     def exec_import(self, decl):
         name = decl.path[-1]
@@ -271,7 +282,9 @@ class Interpreter:
         try:
             self.exec_block(node.body, with_env)
         finally:
-            if isinstance(resource, stdlib._FileValue):
+            if isinstance(resource, runtime.Nursery):
+                resource.join()
+            elif isinstance(resource, stdlib._FileValue):
                 resource.fp.close()
             else:
                 closer = get_method(resource, "close", self)
@@ -461,6 +474,9 @@ class Interpreter:
         type_name = self.value_type_name(obj)
         if type_name in self.impls and node.name in self.impls[type_name]:
             return BoundMethod(obj, self.impls[type_name][node.name], node.name)
+        rt_method = runtime.get_method(obj, node.name)
+        if rt_method is not None:
+            return rt_method
         method = get_method(obj, node.name, self)
         if method is not None:
             return method

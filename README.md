@@ -4,7 +4,7 @@ Mol is a compiled, statically-typed programming language with type inference,
 first-class concurrency, and a clean, readable syntax. It compiles to native code,
 runs without a global interpreter lock, and treats errors as values.
 
-> Status: **Step 7 of 10 — Native Backend (LLVM).** Early development.
+> Status: **Step 9 of 10 — Standard Library, Tooling & FFI.** Early development.
 
 ## Features
 
@@ -14,8 +14,11 @@ runs without a global interpreter lock, and treats errors as values.
 - Errors as values with the `?` propagation operator.
 - Traits for polymorphism and generics with bounds.
 - First-class functions, closures, and string interpolation.
+- Structured concurrency: nurseries, tasks, and channels.
+- C FFI: call native libraries directly with `extern fn`.
 - Runs via a tree-walking interpreter and a bytecode virtual machine.
 - Compiles numeric and control-flow programs to native executables via LLVM.
+- Tooling: formatter, project scaffolding, and a standard library.
 
 ## Example
 
@@ -34,6 +37,51 @@ fn greet(u: User) -> str:
 fn main():
     let u = User(1, "ada", none)
     print(greet(u))
+```
+
+## Concurrency
+
+Concurrency is structured: tasks live inside a `nursery` scope that does not exit until
+all of its children finish.
+
+```mol
+fn main():
+    with nursery() as g:
+        let a = g.spawn(() => fetch(1))
+        let b = g.spawn(() => fetch(2))
+        print(a.await() + b.await())
+```
+
+Channels pass values between tasks:
+
+```mol
+let ch = channel()
+ch.send(42)
+print(ch.recv())
+```
+
+## Foreign functions
+
+`extern fn` binds a C library function and calls it directly:
+
+```mol
+extern fn sqrt(x: float) -> float from "m"
+
+fn main():
+    print(sqrt(16.0))
+```
+
+## Standard library
+
+Modules available via `import`: `fs`, `json`, `math`, `time`, `str`, `random`, `list`.
+
+## Tooling
+
+```sh
+mol init myapp          # scaffold a project (mol.toml + src/main.mol)
+mol fmt file.mol         # print canonical formatting
+mol fmt file.mol -w      # format in place
+mol escape file.mol      # show stack vs heap allocation analysis
 ```
 
 ## Getting started
@@ -98,8 +146,12 @@ source → lexer → parser → checker → ┬→ interpreter (tree-walking)
 - `src/interpreter.py` — tree-walking evaluator.
 - `src/compiler.py`, `src/bytecode.py`, `src/vm.py` — bytecode compiler and stack VM.
 - `src/codegen.py`, `src/native.py` — LLVM IR generation and native compilation.
+- `src/runtime.py` — tasks, nurseries, and channels.
+- `src/escape.py` — escape analysis (stack vs heap allocation).
+- `src/ffi.py` — C foreign-function interface.
+- `src/formatter.py` — canonical source formatter.
 - `src/repl.py` — interactive shell.
-- `src/stdlib.py`, `src/builtins_mod.py` — built-in functions and modules (`fs`, `json`, `math`).
+- `src/stdlib.py`, `src/builtins_mod.py` — built-in functions and modules.
 
 ## Repository layout
 
@@ -124,8 +176,8 @@ tests/           compiler tests
 5. Tree-walking interpreter. ✅
 6. Bytecode compiler and virtual machine, REPL. ✅
 7. Native backend via LLVM — single static binary. ✅
-8. Runtime — green-thread scheduler, structured concurrency, memory model.
-9. Standard library, tooling (`mol` CLI, LSP, formatter, package manager), and FFI.
+8. Runtime — green-thread scheduler, structured concurrency, memory model. ✅
+9. Standard library, tooling (`mol` CLI, formatter, package manifest), and FFI. ✅
 10. Self-hosting compiler, JIT tier, and 1.0 release.
 
 ## License

@@ -42,6 +42,10 @@ class Function(Node):
     _fields = ("name", "generics", "params", "return_type", "body", "is_pub")
 
 
+class ExternFn(Node):
+    _fields = ("name", "params", "return_type", "c_name", "library")
+
+
 class Field(Node):
     _fields = ("name", "type")
 

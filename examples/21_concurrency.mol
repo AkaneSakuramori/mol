@@ -1,0 +1,9 @@
+fn square(n: int) -> int:
+    return n * n
+
+fn main():
+    with nursery() as g:
+        let a = g.spawn(() => square(2))
+        let b = g.spawn(() => square(5))
+        let c = g.spawn(() => square(9))
+        print(a.await() + b.await() + c.await())
