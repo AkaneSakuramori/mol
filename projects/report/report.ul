@@ -1,0 +1,99 @@
+# report — a CSV data report generator written in Ulang.
+#
+# Parses CSV text into records, computes aggregate statistics per group, and writes a
+# formatted report to a file. It exercises the file-system module (`fs.write`), string
+# parsing (`split`), dictionaries for grouping, and numeric aggregation — a realistic
+# data-pipeline shape that ends in real I/O.
+
+import fs
+
+type Row:
+    name: str
+    team: str
+    score: int
+
+fn parse_int(tok: str) -> int:
+    var n = 0
+    for ch in tok.trim().chars():
+        n = n * 10 + digit(ch)
+    return n
+
+fn digit(c: str) -> int:
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    var i = 0
+    while i < 10:
+        if ds[i] == c:
+            return i
+        i = i + 1
+    return 0
+
+fn parse_csv(text: str) -> [Row]:
+    var rows = []
+    var first = true
+    for line in text.split("\n"):
+        if line.trim().len() > 0:
+            if first:
+                first = false
+            else:
+                let cols = line.split(",")
+                if cols.len() == 3:
+                    rows.push(Row(cols[0].trim(), cols[1].trim(), parse_int(cols[2])))
+    return rows
+
+fn team_totals(rows: [Row]) -> dyn:
+    var totals = {}
+    for r in rows:
+        if totals.has(r.team):
+            totals[r.team] = totals[r.team] + r.score
+        else:
+            totals[r.team] = r.score
+    return totals
+
+fn team_counts(rows: [Row]) -> dyn:
+    var counts = {}
+    for r in rows:
+        if counts.has(r.team):
+            counts[r.team] = counts[r.team] + 1
+        else:
+            counts[r.team] = 1
+    return counts
+
+fn pad_right(s: str, w: int) -> str:
+    if s.len() >= w:
+        return s.substring(0, w)
+    return s + " ".repeat(w - s.len())
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    return s
+
+fn build_report(rows: [Row]) -> str:
+    let totals = team_totals(rows)
+    let counts = team_counts(rows)
+    var out = "Team Report\n"
+    out += "===========\n"
+    out += pad_right("team", 10) + pad_right("members", 10) + "total\n"
+    for team in totals.keys():
+        let avg = totals[team] / counts[team]
+        out += pad_right(team, 10)
+        out += pad_right(int_str(counts[team]), 10)
+        out += int_str(totals[team]) + " (avg ${avg})\n"
+    out += "records: ${rows.len()}\n"
+    return out
+
+fn main():
+    let csv = "name,team,score\nada,alpha,90\nlinus,beta,80\ngrace,alpha,95\ndennis,beta,70\nken,alpha,85"
+    let rows = parse_csv(csv)
+    let report = build_report(rows)
+    match fs.write("/tmp/ulang_report.txt", report):
+        Ok(_) => print("report written to /tmp/ulang_report.txt")
+        Err(e) => print("error: ${e}")
+    print("")
+    print(report)
