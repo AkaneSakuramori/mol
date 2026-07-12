@@ -48,14 +48,20 @@ class Driver:
         self.close()
 
     def _run(self, stage, stdin_file=None):
+        # Force UTF-8 decoding regardless of the host locale (Windows defaults to a
+        # non-UTF-8 codepage), so the canonical tree piped between stages is exact.
         r = subprocess.run([sys.executable, ULANG, "run", stage + ".ul"],
-                           cwd=self.workdir, capture_output=True, text=True)
+                           cwd=self.workdir, capture_output=True, text=True,
+                           encoding="utf-8")
         if r.returncode != 0:
-            raise SelfhostError(f"{stage}: {r.stderr.strip()}")
+            raise SelfhostError(f"{stage}: {(r.stderr or '').strip()}")
         return r.stdout
 
     def _write(self, name, text):
-        with open(os.path.join(self.workdir, name), "w") as f:
+        # newline="" keeps line endings exactly as written: the self-hosted stages
+        # split intermediate files on "\n", so platform newline translation (CRLF on
+        # Windows) must not be introduced here.
+        with open(os.path.join(self.workdir, name), "w", encoding="utf-8", newline="") as f:
             f.write(text)
 
     # -- individual stages -------------------------------------------------

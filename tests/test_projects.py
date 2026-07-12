@@ -37,7 +37,7 @@ PROGRAMS = [
 def _run(cmd, path):
     r = subprocess.run([sys.executable, ULANG, cmd, os.path.join(PROJECTS, path)],
                        capture_output=True, text=True)
-    return r.returncode, r.stdout
+    return r.returncode, r.stdout, r.stderr
 
 
 def run():
@@ -45,28 +45,28 @@ def run():
     checked = 0
     for rel, expected in PROGRAMS:
         checked += 1
-        code, out = _run("run", rel)
+        code, out, err = _run("run", rel)
         if code == 0 and out == expected:
             print(f"ok   {rel}: interpreter output matches")
         else:
-            print(f"FAIL {rel}: interpreter output\n--- expected ---\n{expected}\n--- got ---\n{out}")
+            print(f"FAIL {rel}: interpreter output\n--- expected ---\n{expected}\n--- got ---\n{out}\n{err}")
             failed += 1
 
         checked += 1
-        vcode, vout = _run("runvm", rel)
+        vcode, vout, verr = _run("runvm", rel)
         if vcode == 0 and vout == out:
             print(f"ok   {rel}: VM output matches interpreter")
         else:
-            print(f"FAIL {rel}: VM output differs from interpreter")
+            print(f"FAIL {rel}: VM output differs from interpreter\n{verr}")
             failed += 1
 
         checked += 1
-        scode, sout = _run("selfhost", rel)
+        scode, sout, serr = _run("selfhost", rel)
         if scode == 0 and "code " in sout:
             n = sout.count("code ")
             print(f"ok   {rel}: self-hosted compiler emits bytecode ({n} functions)")
         else:
-            print(f"FAIL {rel}: self-hosted compiler failed\n{sout}")
+            print(f"FAIL {rel}: self-hosted compiler failed\n{sout}\n{serr}")
             failed += 1
 
     print(f"\n{checked - failed}/{checked} passed")
