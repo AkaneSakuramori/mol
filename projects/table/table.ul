@@ -1,0 +1,58 @@
+# table — a text table formatter written in Ulang.
+#
+# Formats rows of data into an aligned ASCII table with padded columns and a header rule.
+# It exercises the standard-library string methods (`repeat`, `substring`, `len`) that
+# real formatting code needs, plus list-of-lists data and column-width computation.
+
+fn pad_right(text: str, width: int) -> str:
+    if text.len() >= width:
+        return text.substring(0, width)
+    return text + " ".repeat(width - text.len())
+
+fn col_widths(rows: [[str]], cols: int) -> [int]:
+    var widths = []
+    var c = 0
+    while c < cols:
+        var w = 0
+        for row in rows:
+            if row[c].len() > w:
+                w = row[c].len()
+        widths.push(w)
+        c = c + 1
+    return widths
+
+fn render_row(row: [str], widths: [int]) -> str:
+    var out = "|"
+    var c = 0
+    while c < row.len():
+        out += " " + pad_right(row[c], widths[c]) + " |"
+        c = c + 1
+    return out
+
+fn rule(widths: [int]) -> str:
+    var out = "+"
+    for w in widths:
+        out += "-".repeat(w + 2) + "+"
+    return out
+
+fn render_table(header: [str], rows: [[str]]) -> str:
+    var all = [header]
+    for r in rows:
+        all.push(r)
+    let widths = col_widths(all, header.len())
+    var out = rule(widths) + "\n"
+    out += render_row(header, widths) + "\n"
+    out += rule(widths) + "\n"
+    for r in rows:
+        out += render_row(r, widths) + "\n"
+    out += rule(widths)
+    return out
+
+fn main():
+    let header = ["language", "typed", "self-hosted"]
+    let rows = [
+        ["ulang", "yes", "compiler"],
+        ["python", "no", "yes"],
+        ["c", "yes", "yes"],
+    ]
+    print(render_table(header, rows))

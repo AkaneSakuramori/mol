@@ -21,12 +21,14 @@ WORDSTATS_EXPECTED = 'total words:  24\nunique words: 14\nlongest word: amused\n
 JSONFMT_EXPECTED = '{\n  "name": "ulang",\n  "version": 2,\n  "stable": true,\n  "keywords": [\n    "compiled",\n    "typed",\n    "self-hosted"\n  ],\n  "counts": {\n    "stages": 8,\n    "suites": 28\n  },\n  "notes": null\n}\n'
 LIFE_EXPECTED = 'generation 0:\n.#....\n..#...\n###...\n......\n......\n......\n\ngeneration 1:\n......\n#.#...\n.##...\n.#....\n......\n......\n\ngeneration 2:\n......\n..#...\n#.#...\n.##...\n......\n......\n\ngeneration 3:\n......\n.#....\n..##..\n.##...\n......\n......\n\n'
 RPN_EXPECTED = '3 4 +  =>  7\n5 1 2 + 4 * + 3 -  =>  14\n10 2 /  =>  5\n7 0 /  =>  error: division by zero\n2 3 4 * +  =>  14\n1 +  =>  error: stack underflow\n1 2 3  =>  error: too many values\n9 3 % 2 *  =>  0\n'
+TABLE_EXPECTED = '+----------+-------+-------------+\n| language | typed | self-hosted |\n+----------+-------+-------------+\n| ulang    | yes   | compiler    |\n| python   | no    | yes         |\n| c        | yes   | yes         |\n+----------+-------+-------------+\n'
 PROGRAMS = [
     ("calc/calc.ul", CALC_EXPECTED),
     ("wordstats/wordstats.ul", WORDSTATS_EXPECTED),
     ("jsonfmt/jsonfmt.ul", JSONFMT_EXPECTED),
     ("life/life.ul", LIFE_EXPECTED),
     ("rpn/rpn.ul", RPN_EXPECTED),
+    ("table/table.ul", TABLE_EXPECTED),
 ]
 
 

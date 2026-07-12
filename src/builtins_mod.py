@@ -209,7 +209,26 @@ def _str_method(obj, name):
         return Builtin("ends_with", lambda a: obj.endswith(a[0]))
     if name == "chars":
         return Builtin("chars", lambda a: list(obj))
+    if name == "substring":
+        return Builtin("substring", lambda a: _substring(obj, a))
+    if name == "index_of":
+        return Builtin("index_of", lambda a: obj.find(a[0]))
+    if name == "repeat":
+        return Builtin("repeat", lambda a: obj * a[0])
     return None
+
+
+def _substring(obj, args):
+    start = args[0]
+    end = args[1] if len(args) > 1 else len(obj)
+    n = len(obj)
+    if start < 0:
+        start = 0
+    if end > n:
+        end = n
+    if start > end:
+        return ""
+    return obj[start:end]
 
 
 def _dict_method(obj, name):

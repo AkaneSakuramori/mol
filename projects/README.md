@@ -12,6 +12,7 @@ VM, and confirms the self-hosted compiler can compile it.
 | [`jsonfmt`](jsonfmt/) | A JSON value model and pretty-printer. Recursive enums, enum payloads of varied shapes, recursive rendering with indentation. |
 | [`life`](life/) | Conway's Game of Life. Nested lists, in-place mutation, neighbour counting, generation stepping. |
 | [`rpn`](rpn/) | A Reverse Polish Notation calculator with typed error handling. `Result`, the `?` operator, and a value stack. |
+| [`table`](table/) | A text table formatter with aligned, padded columns. Standard-library string methods (`repeat`, `substring`) and list-of-lists data. |
 
 Run any project with:
 
