@@ -1,0 +1,295 @@
+# lisp — a small Lisp interpreter written in Ulang.
+#
+# Reads S-expressions, evaluates them against a lexically-scoped environment, and supports
+# integer arithmetic, comparisons, `if`, `let`, `define`, lambdas (`fn`), closures, and
+# recursion. It is the most sophisticated reference project: a complete language
+# implementation exercising recursive parsing, recursive evaluation, enums with payloads,
+# dictionaries for environments, closures, and error handling together.
+
+enum Val:
+    Num(int)
+    Sym(str)
+    List([Val])
+    Fn(dyn)
+    Nil
+
+type Reader:
+    toks: [str]
+    pos: int
+
+fn tokenize(src: str) -> [str]:
+    var spaced = ""
+    for ch in src.chars():
+        if ch == "(" or ch == ")":
+            spaced += " ${ch} "
+        else:
+            spaced += ch
+    var out = []
+    for t in spaced.split(" "):
+        if t.len() > 0:
+            out.push(t)
+    return out
+
+fn new_reader(src: str) -> Reader:
+    return Reader(tokenize(src), 0)
+
+fn read(r: Reader) -> Val:
+    if r.pos >= r.toks.len():
+        return Nil
+    let tok = r.toks[r.pos]
+    r.pos = r.pos + 1
+    if tok == "(":
+        return read_list(r)
+    return atom(tok)
+
+fn read_list(r: Reader) -> Val:
+    var items = []
+    while r.pos < r.toks.len() and r.toks[r.pos] != ")":
+        items.push(read(r))
+    if r.pos < r.toks.len():
+        r.pos = r.pos + 1
+    return List(items)
+
+fn atom(tok: str) -> Val:
+    if is_int(tok):
+        return Num(to_int(tok))
+    return Sym(tok)
+
+fn is_int(tok: str) -> bool:
+    if tok.len() == 0:
+        return false
+    var start = 0
+    if tok.chars()[0] == "-":
+        if tok.len() == 1:
+            return false
+        start = 1
+    var i = start
+    while i < tok.len():
+        let c = tok.chars()[i]
+        if not (c >= "0" and c <= "9"):
+            return false
+        i = i + 1
+    return true
+
+fn to_int(tok: str) -> int:
+    var start = 0
+    var neg = false
+    if tok.chars()[0] == "-":
+        neg = true
+        start = 1
+    var n = 0
+    var i = start
+    while i < tok.len():
+        n = n * 10 + digit(tok.chars()[i])
+        i = i + 1
+    if neg:
+        return 0 - n
+    return n
+
+fn digit(c: str) -> int:
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    var i = 0
+    while i < 10:
+        if ds[i] == c:
+            return i
+        i = i + 1
+    return 0
+
+# --- environment: a chain of dictionaries ---
+
+type Env:
+    vars: dyn
+    parent: dyn
+
+fn new_env(parent: dyn) -> Env:
+    return Env({}, parent)
+
+fn env_get(env: Env, name: str) -> Val:
+    if env.vars.has(name):
+        return env.vars[name]
+    if is_env(env.parent):
+        return env_get(env.parent, name)
+    return Nil
+
+fn env_set(env: Env, name: str, value: Val):
+    env.vars[name] = value
+
+fn is_env(x: dyn) -> bool:
+    return is_list(x) == false and is_str(x) == false and x != 0
+
+# --- evaluator ---
+
+fn num_of(v: Val) -> int:
+    match v:
+        Num(n) => n
+        _ => 0
+
+fn eval(node: Val, env: Env) -> Val:
+    match node:
+        Num(n) => node
+        Sym(s) => env_get(env, s)
+        List(items) => eval_list(items, env)
+        _ => Nil
+
+fn eval_list(items: [Val], env: Env) -> Val:
+    if items.len() == 0:
+        return Nil
+    let head = items[0]
+    match head:
+        Sym(op) => eval_form(op, items, env)
+        _ => Nil
+
+fn eval_form(op: str, items: [Val], env: Env) -> Val:
+    if op == "+":
+        return Num(fold(items, env, 0, "+"))
+    if op == "-":
+        return Num(fold_sub(items, env))
+    if op == "*":
+        return Num(fold(items, env, 1, "*"))
+    if op == "if":
+        return eval_if(items, env)
+    if op == "let":
+        return eval_let(items, env)
+    if op == "define":
+        return eval_define(items, env)
+    if op == "<":
+        return bool_val(num_arg(items, 1, env) < num_arg(items, 2, env))
+    if op == "=":
+        return bool_val(num_arg(items, 1, env) == num_arg(items, 2, env))
+    return eval_call(op, items, env)
+
+fn fold(items: [Val], env: Env, start: int, op: str) -> int:
+    var acc = start
+    var i = 1
+    while i < items.len():
+        let v = num_of(eval(items[i], env))
+        if op == "+":
+            acc = acc + v
+        else:
+            acc = acc * v
+        i = i + 1
+    return acc
+
+fn fold_sub(items: [Val], env: Env) -> int:
+    if items.len() < 2:
+        return 0
+    var acc = num_of(eval(items[1], env))
+    var i = 2
+    while i < items.len():
+        acc = acc - num_of(eval(items[i], env))
+        i = i + 1
+    return acc
+
+fn num_arg(items: [Val], idx: int, env: Env) -> int:
+    return num_of(eval(items[idx], env))
+
+fn bool_val(b: bool) -> Val:
+    if b:
+        return Num(1)
+    return Num(0)
+
+fn eval_if(items: [Val], env: Env) -> Val:
+    let cond = num_of(eval(items[1], env))
+    if cond != 0:
+        return eval(items[2], env)
+    if items.len() > 3:
+        return eval(items[3], env)
+    return Nil
+
+fn eval_let(items: [Val], env: Env) -> Val:
+    # (let name value body)
+    let inner = new_env(env)
+    match items[1]:
+        Sym(name) => env_set(inner, name, eval(items[2], env))
+        _ => print("let needs a name")
+    return eval(items[3], inner)
+
+fn eval_define(items: [Val], env: Env) -> Val:
+    # (define name (fn (params) body))  or  (define name value)
+    match items[1]:
+        Sym(name) => env_set(env, name, make_value(items[2], env))
+        _ => print("define needs a name")
+    return Nil
+
+fn make_value(node: Val, env: Env) -> Val:
+    match node:
+        List(parts) => make_maybe_fn(parts, node, env)
+        _ => eval(node, env)
+
+fn make_maybe_fn(parts: [Val], node: Val, env: Env) -> Val:
+    if parts.len() == 0:
+        return eval(node, env)
+    match parts[0]:
+        Sym(kw) => close_or_eval(kw, parts, node, env)
+        _ => eval(node, env)
+
+fn close_or_eval(kw: str, parts: [Val], node: Val, env: Env) -> Val:
+    if kw == "fn":
+        return Fn([parts[1], parts[2], env])
+    return eval(node, env)
+
+fn eval_call(op: str, items: [Val], env: Env) -> Val:
+    let callee = env_get(env, op)
+    match callee:
+        Fn(spec) => apply_fn(spec, items, env)
+        _ => Nil
+
+fn apply_fn(spec: dyn, items: [Val], env: Env) -> Val:
+    let params = spec[0]
+    let body = spec[1]
+    let captured = spec[2]
+    let call_env = new_env(captured)
+    match params:
+        List(names) => bind_args(names, items, env, call_env)
+        _ => print("bad params")
+    return eval(body, call_env)
+
+fn bind_args(names: [Val], items: [Val], caller: Env, call_env: Env):
+    var i = 0
+    while i < names.len():
+        match names[i]:
+            Sym(pname) => env_set(call_env, pname, eval(items[i + 1], caller))
+            _ => print("bad param name")
+        i = i + 1
+
+fn show(v: Val) -> str:
+    match v:
+        Num(n) => int_str(n)
+        Sym(s) => s
+        Nil => "nil"
+        _ => "<fn>"
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var neg = false
+    if m < 0:
+        neg = true
+        m = 0 - m
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    if neg:
+        return "-" + s
+    return s
+
+fn run(src: str, env: Env) -> Val:
+    return eval(read(new_reader(src)), env)
+
+fn main():
+    let env = new_env(0)
+    run("(define square (fn (x) (* x x)))", env)
+    run("(define fact (fn (n) (if (< n 2) 1 (* n (fact (- n 1))))))", env)
+    run("(define fib (fn (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))))", env)
+
+    print("(+ 1 2 3 4)       = ${show(run("(+ 1 2 3 4)", env))}")
+    print("(* 2 3 4)         = ${show(run("(* 2 3 4)", env))}")
+    print("(- 10 3 2)        = ${show(run("(- 10 3 2)", env))}")
+    print("(square 9)        = ${show(run("(square 9)", env))}")
+    print("(fact 5)          = ${show(run("(fact 5)", env))}")
+    print("(fib 10)          = ${show(run("(fib 10)", env))}")
+    print("(if (< 3 2) 1 2)  = ${show(run("(if (< 3 2) 1 2)", env))}")
+    print("(let x 5 (* x x)) = ${show(run("(let x 5 (* x x))", env))}")

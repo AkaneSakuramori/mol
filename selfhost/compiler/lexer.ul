@@ -44,8 +44,27 @@ fn skip_string(lx: Lexer):
     while lx.i < lx.n and lx.chars[lx.i] != "\"":
         if lx.chars[lx.i] == "\\":
             lx.i = lx.i + 1
+        elif lx.chars[lx.i] == "$" and lx.i + 1 < lx.n and lx.chars[lx.i + 1] == "{":
+            skip_interpolation(lx)
+            continue
         lx.i = lx.i + 1
     lx.i = lx.i + 1
+
+fn skip_interpolation(lx: Lexer):
+    # at '$' with '{' next: skip the whole ${ ... } expression, tracking brace depth so
+    # that nested strings (which may contain '"') and nested braces are skipped correctly.
+    lx.i = lx.i + 2
+    var depth = 1
+    while lx.i < lx.n and depth > 0:
+        let c = lx.chars[lx.i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        elif c == "\"":
+            skip_string(lx)
+            continue
+        lx.i = lx.i + 1
 
 fn line_indent(lx: Lexer) -> int:
     var indent = 0

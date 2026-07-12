@@ -15,6 +15,7 @@ VM, and confirms the self-hosted compiler can compile it.
 | [`table`](table/) | A text table formatter with aligned, padded columns. Standard-library string methods (`repeat`, `substring`) and list-of-lists data. |
 | [`kvstore`](kvstore/) | An in-memory key/value store with a text command language (SET/GET/DEL/INCR/EXISTS/KEYS/COUNT). Dictionaries, `Option`, `Result`, and a request/response loop over shared state. |
 | [`stats`](stats/) | A numerical statistics toolkit (mean, variance, stddev, median). The `math` module, float aggregation, and comparator sort. |
+| [`lisp`](lisp/) | A small Lisp interpreter: reader, environments, closures, recursion, `if`/`let`/`define`/`fn`. The most sophisticated project — a complete language implementation. |
 
 Run any project with:
 
