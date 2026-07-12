@@ -1,0 +1,109 @@
+# jsonfmt — a JSON value model and pretty-printer written in Ulang.
+#
+# Models a JSON document as a recursive enum and renders it with configurable indentation.
+# It exercises recursive data types, enum payloads of different shapes (numbers, strings,
+# lists, and key/value pairs), and recursive rendering with accumulated indentation.
+
+enum Json:
+    Null
+    Bool(bool)
+    Num(float)
+    Str(str)
+    Arr([Json])
+    Obj([Member])
+
+type Member:
+    key: str
+    value: Json
+
+fn indent(n: int) -> str:
+    var s = ""
+    var i = 0
+    while i < n:
+        s += "  "
+        i = i + 1
+    return s
+
+fn render(node: Json, depth: int) -> str:
+    match node:
+        Null => "null"
+        Bool(b) => bool_text(b)
+        Num(v) => num_text(v)
+        Str(s) => "\"${s}\""
+        Arr(items) => render_array(items, depth)
+        Obj(members) => render_object(members, depth)
+
+fn bool_text(b: bool) -> str:
+    if b:
+        return "true"
+    return "false"
+
+fn num_text(v: float) -> str:
+    let whole = to_int_trunc(v)
+    if whole == v:
+        return int_str(whole)
+    return "${v}"
+
+fn to_int_trunc(v: float) -> int:
+    var n = 0
+    var x = v
+    if x < 0.0:
+        return 0
+    while x >= 1.0:
+        x = x - 1.0
+        n = n + 1
+    return n
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    return s
+
+fn render_array(items: [Json], depth: int) -> str:
+    if items.len() == 0:
+        return "[]"
+    var out = "[\n"
+    var i = 0
+    while i < items.len():
+        out += indent(depth + 1) + render(items[i], depth + 1)
+        if i < items.len() - 1:
+            out += ","
+        out += "\n"
+        i = i + 1
+    out += indent(depth) + "]"
+    return out
+
+fn render_object(members: [Member], depth: int) -> str:
+    if members.len() == 0:
+        return "{}"
+    var out = "{\n"
+    var i = 0
+    while i < members.len():
+        let m = members[i]
+        out += indent(depth + 1) + "\"${m.key}\": " + render(m.value, depth + 1)
+        if i < members.len() - 1:
+            out += ","
+        out += "\n"
+        i = i + 1
+    out += indent(depth) + "}"
+    return out
+
+fn main():
+    let doc = Obj([
+        Member("name", Str("ulang")),
+        Member("version", Num(2.0)),
+        Member("stable", Bool(true)),
+        Member("keywords", Arr([Str("compiled"), Str("typed"), Str("self-hosted")])),
+        Member("counts", Obj([
+            Member("stages", Num(8.0)),
+            Member("suites", Num(28.0)),
+        ])),
+        Member("notes", Null),
+    ])
+    print(render(doc, 0))

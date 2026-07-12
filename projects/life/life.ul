@@ -1,0 +1,91 @@
+# life — Conway's Game of Life written in Ulang.
+#
+# A cellular-automaton simulation on a fixed grid, exercising nested lists, in-place
+# mutation, neighbour counting with bounds handling, and generation stepping. It renders
+# a handful of generations of a glider to text.
+
+type Grid:
+    cells: dyn
+    rows: int
+    cols: int
+
+fn new_grid(rows: int, cols: int) -> Grid:
+    var cells = []
+    var r = 0
+    while r < rows:
+        var row = []
+        var c = 0
+        while c < cols:
+            row.push(0)
+            c = c + 1
+        cells.push(row)
+        r = r + 1
+    return Grid(cells, rows, cols)
+
+fn get(g: Grid, r: int, c: int) -> int:
+    if r < 0 or r >= g.rows or c < 0 or c >= g.cols:
+        return 0
+    return g.cells[r][c]
+
+fn set(g: Grid, r: int, c: int, v: int):
+    g.cells[r][c] = v
+
+fn neighbours(g: Grid, r: int, c: int) -> int:
+    var total = 0
+    var dr = -1
+    while dr <= 1:
+        var dc = -1
+        while dc <= 1:
+            if not (dr == 0 and dc == 0):
+                total = total + get(g, r + dr, c + dc)
+            dc = dc + 1
+        dr = dr + 1
+    return total
+
+fn step(g: Grid) -> Grid:
+    let next = new_grid(g.rows, g.cols)
+    var r = 0
+    while r < g.rows:
+        var c = 0
+        while c < g.cols:
+            let alive = g.cells[r][c]
+            let n = neighbours(g, r, c)
+            if alive == 1 and (n == 2 or n == 3):
+                set(next, r, c, 1)
+            elif alive == 0 and n == 3:
+                set(next, r, c, 1)
+            c = c + 1
+        r = r + 1
+    return next
+
+fn render(g: Grid) -> str:
+    var out = ""
+    var r = 0
+    while r < g.rows:
+        var c = 0
+        while c < g.cols:
+            if g.cells[r][c] == 1:
+                out += "#"
+            else:
+                out += "."
+            c = c + 1
+        out += "\n"
+        r = r + 1
+    return out
+
+fn place_glider(g: Grid, r: int, c: int):
+    set(g, r, c + 1, 1)
+    set(g, r + 1, c + 2, 1)
+    set(g, r + 2, c, 1)
+    set(g, r + 2, c + 1, 1)
+    set(g, r + 2, c + 2, 1)
+
+fn main():
+    var g = new_grid(6, 6)
+    place_glider(g, 0, 0)
+    var gen = 0
+    while gen < 4:
+        print("generation ${gen}:")
+        print(render(g))
+        g = step(g)
+        gen = gen + 1

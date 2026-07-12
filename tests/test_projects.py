@@ -3,7 +3,7 @@
 Each project is a substantial, self-contained Ulang program. This test pins its output
 and verifies it runs identically on the tree-walking interpreter and the bytecode VM, and
 that the self-hosted compiler can compile it to bytecode. These programs are the
-real-world validation for the language and toolchain.
+real-world validation for the language and toolchain (see docs/2.0-findings.md).
 """
 
 import os
@@ -16,35 +16,17 @@ ULANG = os.path.join(ROOT, "src", "ulang.py")
 PROJECTS = os.path.join(ROOT, "projects")
 
 
-CALC_EXPECTED = """\
-1 + 2 * 3  =>  7.0
-(1 + 2) * 3  =>  9.0
-10 / 4  =>  2.5
-2 + 3 * 4 - 5  =>  9.0
-x = 6  =>  6.0
-y = 7  =>  7.0
-x * y + 1  =>  43.0
--x + 100  =>  94.0
-x = 22.5  =>  22.5
-x * 2  =>  45.0
-100 % 7  =>  2.0
-"""
-
-WORDSTATS_EXPECTED = """\
-total words:  24
-unique words: 14
-longest word: amused
-top words:
-  the: 5
-  quick: 3
-  fox: 3
-  dog: 3
-  brown: 1
-"""
-
+CALC_EXPECTED = '1 + 2 * 3  =>  7.0\n(1 + 2) * 3  =>  9.0\n10 / 4  =>  2.5\n2 + 3 * 4 - 5  =>  9.0\nx = 6  =>  6.0\ny = 7  =>  7.0\nx * y + 1  =>  43.0\n-x + 100  =>  94.0\nx = 22.5  =>  22.5\nx * 2  =>  45.0\n100 % 7  =>  2.0\n'
+WORDSTATS_EXPECTED = 'total words:  24\nunique words: 14\nlongest word: amused\ntop words:\n  the: 5\n  quick: 3\n  fox: 3\n  dog: 3\n  brown: 1\n'
+JSONFMT_EXPECTED = '{\n  "name": "ulang",\n  "version": 2,\n  "stable": true,\n  "keywords": [\n    "compiled",\n    "typed",\n    "self-hosted"\n  ],\n  "counts": {\n    "stages": 8,\n    "suites": 28\n  },\n  "notes": null\n}\n'
+LIFE_EXPECTED = 'generation 0:\n.#....\n..#...\n###...\n......\n......\n......\n\ngeneration 1:\n......\n#.#...\n.##...\n.#....\n......\n......\n\ngeneration 2:\n......\n..#...\n#.#...\n.##...\n......\n......\n\ngeneration 3:\n......\n.#....\n..##..\n.##...\n......\n......\n\n'
+RPN_EXPECTED = '3 4 +  =>  7\n5 1 2 + 4 * + 3 -  =>  14\n10 2 /  =>  5\n7 0 /  =>  error: division by zero\n2 3 4 * +  =>  14\n1 +  =>  error: stack underflow\n1 2 3  =>  error: too many values\n9 3 % 2 *  =>  0\n'
 PROGRAMS = [
     ("calc/calc.ul", CALC_EXPECTED),
     ("wordstats/wordstats.ul", WORDSTATS_EXPECTED),
+    ("jsonfmt/jsonfmt.ul", JSONFMT_EXPECTED),
+    ("life/life.ul", LIFE_EXPECTED),
+    ("rpn/rpn.ul", RPN_EXPECTED),
 ]
 
 
@@ -58,7 +40,6 @@ def run():
     failed = 0
     checked = 0
     for rel, expected in PROGRAMS:
-        # interpreter output pinned
         checked += 1
         code, out = _run("run", rel)
         if code == 0 and out == expected:
@@ -67,7 +48,6 @@ def run():
             print(f"FAIL {rel}: interpreter output\n--- expected ---\n{expected}\n--- got ---\n{out}")
             failed += 1
 
-        # VM parity
         checked += 1
         vcode, vout = _run("runvm", rel)
         if vcode == 0 and vout == out:
@@ -76,7 +56,6 @@ def run():
             print(f"FAIL {rel}: VM output differs from interpreter")
             failed += 1
 
-        # self-hosted compiler compiles it
         checked += 1
         scode, sout = _run("selfhost", rel)
         if scode == 0 and "code " in sout:

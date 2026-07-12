@@ -1,0 +1,100 @@
+# rpn — a Reverse Polish Notation calculator with error handling, written in Ulang.
+#
+# Parses and evaluates space-separated RPN expressions over integers, using a stack. It is
+# the project that exercises Ulang's error-handling model: every fallible operation returns
+# a Result, and the `?` operator propagates failures. Division by zero, stack underflow,
+# and invalid tokens are all reported as typed errors rather than crashes.
+
+fn is_int(tok: str) -> bool:
+    if tok.len() == 0:
+        return false
+    var start = 0
+    if tok.chars()[0] == "-":
+        if tok.len() == 1:
+            return false
+        start = 1
+    var i = start
+    while i < tok.len():
+        let c = tok.chars()[i]
+        if not (c >= "0" and c <= "9"):
+            return false
+        i = i + 1
+    return true
+
+fn parse_int(tok: str) -> int:
+    var start = 0
+    var neg = false
+    if tok.chars()[0] == "-":
+        neg = true
+        start = 1
+    var n = 0
+    var i = start
+    while i < tok.len():
+        n = n * 10 + digit(tok.chars()[i])
+        i = i + 1
+    if neg:
+        return 0 - n
+    return n
+
+fn digit(c: str) -> int:
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    var i = 0
+    while i < 10:
+        if ds[i] == c:
+            return i
+        i = i + 1
+    return 0
+
+fn pop(stack: dyn) -> Result[int, str]:
+    if stack.len() == 0:
+        return Err("stack underflow")
+    return Ok(stack.pop())
+
+fn apply(op: str, a: int, b: int) -> Result[int, str]:
+    if op == "+":
+        return Ok(a + b)
+    if op == "-":
+        return Ok(a - b)
+    if op == "*":
+        return Ok(a * b)
+    if op == "/":
+        if b == 0:
+            return Err("division by zero")
+        return Ok(a / b)
+    if op == "%":
+        if b == 0:
+            return Err("modulo by zero")
+        return Ok(a % b)
+    return Err("unknown operator: ${op}")
+
+fn eval(expr: str) -> Result[int, str]:
+    var stack = []
+    for tok in expr.split(" "):
+        if tok.len() > 0:
+            if is_int(tok):
+                stack.push(parse_int(tok))
+            else:
+                let b = pop(stack)?
+                let a = pop(stack)?
+                let r = apply(tok, a, b)?
+                stack.push(r)
+    if stack.len() == 0:
+        return Err("empty expression")
+    if stack.len() > 1:
+        return Err("too many values")
+    return pop(stack)
+
+fn show(expr: str):
+    match eval(expr):
+        Ok(v) => print("${expr}  =>  ${v}")
+        Err(e) => print("${expr}  =>  error: ${e}")
+
+fn main():
+    show("3 4 +")
+    show("5 1 2 + 4 * + 3 -")
+    show("10 2 /")
+    show("7 0 /")
+    show("2 3 4 * +")
+    show("1 +")
+    show("1 2 3")
+    show("9 3 % 2 *")
