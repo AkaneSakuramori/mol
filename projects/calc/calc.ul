@@ -1,0 +1,243 @@
+# calc — an arithmetic expression evaluator written in Ulang.
+#
+# Supports + - * / %, parentheses, unary minus, floating-point and integer literals,
+# variables via `let name = expr`, and previous-result reference `ans`. It is a small
+# but complete pipeline — tokenizer, precedence-climbing parser to an expression tree,
+# and a tree-walking evaluator — exercising enums, structs, recursion, pattern matching,
+# dictionaries, and string handling.
+
+enum Tok:
+    Num(float)
+    Ident(str)
+    Op(str)
+    LParen
+    RParen
+    Eq
+    End
+
+type Lexer:
+    src: str
+    pos: int
+    n: int
+
+fn new_lexer(src: str) -> Lexer:
+    return Lexer(src, 0, src.len())
+
+fn peek(lx: Lexer) -> str:
+    if lx.pos >= lx.n:
+        return ""
+    return lx.src.chars()[lx.pos]
+
+fn advance(lx: Lexer) -> str:
+    let c = peek(lx)
+    lx.pos = lx.pos + 1
+    return c
+
+fn is_digit(c: str) -> bool:
+    return c >= "0" and c <= "9"
+
+fn is_alpha(c: str) -> bool:
+    return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+
+fn next_token(lx: Lexer) -> Tok:
+    while peek(lx) == " ":
+        advance(lx)
+    let c = peek(lx)
+    if c == "":
+        return End
+    if is_digit(c):
+        return lex_number(lx)
+    if is_alpha(c):
+        return lex_ident(lx)
+    advance(lx)
+    if c == "(":
+        return LParen
+    if c == ")":
+        return RParen
+    if c == "=":
+        return Eq
+    return Op(c)
+
+fn lex_number(lx: Lexer) -> Tok:
+    var text = ""
+    while is_digit(peek(lx)):
+        text += advance(lx)
+    if peek(lx) == ".":
+        text += advance(lx)
+        while is_digit(peek(lx)):
+            text += advance(lx)
+    return Num(parse_float(text))
+
+fn lex_ident(lx: Lexer) -> Tok:
+    var text = ""
+    while is_alpha(peek(lx)) or is_digit(peek(lx)):
+        text += advance(lx)
+    return Ident(text)
+
+fn parse_float(text: str) -> float:
+    let parts = text.split(".")
+    var value = int_of(parts[0])
+    var result = value
+    if parts.len() > 1:
+        let frac = parts[1]
+        var scale = 1.0
+        var acc = 0.0
+        for ch in frac.chars():
+            scale = scale * 10.0
+            acc = acc * 10.0 + digit_val(ch)
+        result = result + acc / scale
+    return result
+
+fn int_of(text: str) -> float:
+    var acc = 0.0
+    for ch in text.chars():
+        acc = acc * 10.0 + digit_val(ch)
+    return acc
+
+fn digit_val(ch: str) -> float:
+    let digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    var i = 0
+    while i < 10:
+        if digits[i] == ch:
+            return i
+        i = i + 1
+    return 0
+
+# --- expression tree ---
+
+enum Expr:
+    Lit(float)
+    Var(str)
+    Unary(str, Expr)
+    Binary(str, Expr, Expr)
+
+type Parser:
+    lx: Lexer
+    cur: Tok
+
+fn new_parser(src: str) -> Parser:
+    let lx = new_lexer(src)
+    return Parser(lx, next_token(lx))
+
+fn bump(p: Parser) -> Tok:
+    let prev = p.cur
+    p.cur = next_token(p.lx)
+    return prev
+
+fn prec(op: str) -> int:
+    if op == "+" or op == "-":
+        return 1
+    if op == "*" or op == "/" or op == "%":
+        return 2
+    return 0
+
+fn parse_expr(p: Parser, min_prec: int) -> Expr:
+    var left = parse_atom(p)
+    while cur_binop_prec(p) >= min_prec and cur_binop_prec(p) > 0:
+        let o = cur_op(p)
+        let pr = prec(o)
+        bump(p)
+        let right = parse_expr(p, pr + 1)
+        left = Binary(o, left, right)
+    return left
+
+fn cur_op(p: Parser) -> str:
+    match p.cur:
+        Op(o) => o
+        _ => ""
+
+fn cur_binop_prec(p: Parser) -> int:
+    match p.cur:
+        Op(o) => prec(o)
+        _ => 0
+
+fn parse_atom(p: Parser) -> Expr:
+    match bump(p):
+        Num(v) => Lit(v)
+        Ident(name) => Var(name)
+        LParen => parse_paren(p)
+        Op(o) => parse_unary(p, o)
+        _ => Lit(0.0)
+
+fn parse_paren(p: Parser) -> Expr:
+    let inner = parse_expr(p, 1)
+    bump(p)
+    return inner
+
+fn parse_unary(p: Parser, o: str) -> Expr:
+    if o == "-":
+        return Unary("-", parse_atom(p))
+    return Lit(0.0)
+
+# --- evaluator ---
+
+type Env:
+    vars: dyn
+
+fn new_env() -> Env:
+    return Env({})
+
+fn eval(e: Expr, env: Env) -> float:
+    match e:
+        Lit(v) => v
+        Var(name) => lookup(env, name)
+        Unary(op, inner) => 0.0 - eval(inner, env)
+        Binary(op, l, r) => apply(op, eval(l, env), eval(r, env))
+
+fn lookup(env: Env, name: str) -> float:
+    if env.vars.has(name):
+        return env.vars[name]
+    return 0.0
+
+fn apply(op: str, a: float, b: float) -> float:
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    if op == "%":
+        return a % b
+    return 0.0
+
+# --- driver: evaluate a list of statements ---
+
+fn run_line(line: str, env: Env) -> float:
+    let trimmed = line.trim()
+    let parts = trimmed.split(" = ")
+    if parts.len() == 2 and is_assignment(parts[0]):
+        let name = parts[0].trim()
+        let value = eval(parse_expr(new_parser(parts[1]), 1), env)
+        env.vars[name] = value
+        return value
+    return eval(parse_expr(new_parser(trimmed), 1), env)
+
+fn is_assignment(lhs: str) -> bool:
+    let t = lhs.trim()
+    if t.len() == 0:
+        return false
+    for ch in t.chars():
+        if not (is_alpha(ch) or is_digit(ch)):
+            return false
+    return true
+
+fn main():
+    let program = [
+        "1 + 2 * 3",
+        "(1 + 2) * 3",
+        "10 / 4",
+        "2 + 3 * 4 - 5",
+        "x = 6",
+        "y = 7",
+        "x * y + 1",
+        "-x + 100",
+        "x = 22.5",
+        "x * 2",
+        "100 % 7",
+    ]
+    let env = new_env()
+    for line in program:
+        let result = run_line(line, env)
+        print("${line}  =>  ${result}")

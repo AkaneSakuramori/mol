@@ -29,6 +29,7 @@ SUITES = [
     "test_selfhost_bytecode.py",
     "test_selfhost_codegen.py",
     "test_bootstrap.py",
+    "test_projects.py",
     "test_memory.py",
     "test_platform.py",
 ]
