@@ -17,6 +17,7 @@ VM, and confirms the self-hosted compiler can compile it.
 | [`stats`](stats/) | A numerical statistics toolkit (mean, variance, stddev, median). The `math` module, float aggregation, and comparator sort. |
 | [`lisp`](lisp/) | A small Lisp interpreter: reader, environments, closures, recursion, `if`/`let`/`define`/`fn`. The most sophisticated project — a complete language implementation. |
 | [`report`](report/) | A CSV data report generator. The `fs` module (real file I/O), CSV parsing, dictionary grouping, and numeric aggregation. |
+| [`graph`](graph/) | Breadth-first shortest paths on a directed graph. Adjacency maps (dict of lists), queue semantics, `Option`, and path reconstruction. |
 
 Run any project with:
 

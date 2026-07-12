@@ -1,0 +1,102 @@
+# graph — breadth-first shortest paths written in Ulang.
+#
+# Builds a directed graph from an edge list and computes shortest path lengths and the
+# actual paths from a source node using breadth-first search. It exercises dictionaries of
+# lists (adjacency), queue semantics over lists, Option for "unreachable", and path
+# reconstruction — a classic algorithm on non-trivial data structures.
+
+type Graph:
+    adj: dyn
+
+fn new_graph() -> Graph:
+    return Graph({})
+
+fn add_edge(g: Graph, src: str, to: str):
+    if not g.adj.has(src):
+        g.adj[src] = []
+    g.adj[src].push(to)
+    if not g.adj.has(to):
+        g.adj[to] = []
+
+fn neighbours(g: Graph, node: str) -> [str]:
+    if g.adj.has(node):
+        return g.adj[node]
+    return []
+
+fn bfs(g: Graph, start: str) -> dyn:
+    # returns dict: node -> [dist, prev]
+    var info = {}
+    info[start] = [0, ""]
+    var queue = [start]
+    var head = 0
+    while head < queue.len():
+        let node = queue[head]
+        head = head + 1
+        let d = info[node][0]
+        for nb in neighbours(g, node):
+            if not info.has(nb):
+                info[nb] = [d + 1, node]
+                queue.push(nb)
+    return info
+
+fn distance(info: dyn, node: str) -> dyn:
+    if info.has(node):
+        return Some(info[node][0])
+    return None
+
+fn path_to(info: dyn, node: str) -> [str]:
+    var rev = []
+    var cur = node
+    while cur != "" and info.has(cur):
+        rev.push(cur)
+        cur = info[cur][1]
+    var out = []
+    var i = rev.len() - 1
+    while i >= 0:
+        out.push(rev[i])
+        i = i - 1
+    return out
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    return s
+
+fn join(parts: [str], sep: str) -> str:
+    var out = ""
+    var i = 0
+    while i < parts.len():
+        if i > 0:
+            out += sep
+        out += parts[i]
+        i = i + 1
+    return out
+
+fn report(info: dyn, node: str):
+    match distance(info, node):
+        Some(d) => print("${node}: dist=${d} path=${join(path_to(info, node), " -> ")}")
+        None => print("${node}: unreachable")
+
+fn main():
+    let g = new_graph()
+    add_edge(g, "a", "b")
+    add_edge(g, "a", "c")
+    add_edge(g, "b", "d")
+    add_edge(g, "c", "d")
+    add_edge(g, "d", "e")
+    add_edge(g, "c", "f")
+    add_edge(g, "x", "y")
+
+    let info = bfs(g, "a")
+    report(info, "a")
+    report(info, "b")
+    report(info, "d")
+    report(info, "e")
+    report(info, "f")
+    report(info, "y")
