@@ -1,0 +1,64 @@
+# stats — a numerical statistics toolkit written in Ulang.
+#
+# Computes descriptive statistics (mean, variance, standard deviation, min, max, median)
+# over a dataset of floats. It exercises the math module (`sqrt`, `min`, `max`), float
+# aggregation, list sorting with a comparator, and higher-order reductions.
+
+import math
+
+fn mean(xs: [float]) -> float:
+    var total = 0.0
+    for x in xs:
+        total = total + x
+    return total / to_float(xs.len())
+
+fn variance(xs: [float]) -> float:
+    let m = mean(xs)
+    var acc = 0.0
+    for x in xs:
+        let d = x - m
+        acc = acc + d * d
+    return acc / to_float(xs.len())
+
+fn stddev(xs: [float]) -> float:
+    return math.sqrt(variance(xs))
+
+fn minimum(xs: [float]) -> float:
+    var lo = xs[0]
+    for x in xs:
+        lo = math.min(lo, x)
+    return lo
+
+fn maximum(xs: [float]) -> float:
+    var hi = xs[0]
+    for x in xs:
+        hi = math.max(hi, x)
+    return hi
+
+fn median(xs: [float]) -> float:
+    let sorted = xs.sort((a, b) => cmp_float(a, b))
+    let n = sorted.len()
+    let mid = n / 2
+    if n % 2 == 1:
+        return sorted[mid]
+    return (sorted[mid - 1] + sorted[mid]) / 2.0
+
+fn cmp_float(a: float, b: float) -> int:
+    if a < b:
+        return -1
+    if a > b:
+        return 1
+    return 0
+
+fn to_float(n: int) -> float:
+    return n
+
+fn main():
+    let data = [4.0, 8.0, 15.0, 16.0, 23.0, 42.0]
+    print("n:        ${data.len()}")
+    print("mean:     ${mean(data)}")
+    print("variance: ${variance(data)}")
+    print("stddev:   ${stddev(data)}")
+    print("min:      ${minimum(data)}")
+    print("max:      ${maximum(data)}")
+    print("median:   ${median(data)}")

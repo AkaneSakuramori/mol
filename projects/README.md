@@ -14,6 +14,7 @@ VM, and confirms the self-hosted compiler can compile it.
 | [`rpn`](rpn/) | A Reverse Polish Notation calculator with typed error handling. `Result`, the `?` operator, and a value stack. |
 | [`table`](table/) | A text table formatter with aligned, padded columns. Standard-library string methods (`repeat`, `substring`) and list-of-lists data. |
 | [`kvstore`](kvstore/) | An in-memory key/value store with a text command language (SET/GET/DEL/INCR/EXISTS/KEYS/COUNT). Dictionaries, `Option`, `Result`, and a request/response loop over shared state. |
+| [`stats`](stats/) | A numerical statistics toolkit (mean, variance, stddev, median). The `math` module, float aggregation, and comparator sort. |
 
 Run any project with:
 
