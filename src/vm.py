@@ -50,7 +50,7 @@ class VM:
         self.program = program
         self.globals = {}
         self.depth = 0
-        self.max_depth = 2500
+        self.max_depth = 5000
         self._setup()
 
     def _setup(self):

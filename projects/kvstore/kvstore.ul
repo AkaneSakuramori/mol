@@ -1,0 +1,198 @@
+# kvstore — an in-memory key/value store with a command language, written in Ulang.
+#
+# Implements a small database that responds to text commands (SET, GET, DEL, INCR, EXISTS,
+# KEYS, COUNT). Values are integers. It exercises dictionaries, Option for absent keys,
+# Result for command errors, and stateful mutation driven by a parsed command stream —
+# a step toward production-shaped software (a request/response loop over shared state).
+
+type Store:
+    data: dyn
+
+fn new_store() -> Store:
+    return Store({})
+
+fn get(s: Store, key: str) -> dyn:
+    if s.data.has(key):
+        return Some(s.data[key])
+    return None
+
+fn set(s: Store, key: str, value: int):
+    s.data[key] = value
+
+fn delete(s: Store, key: str) -> bool:
+    if s.data.has(key):
+        s.data.remove(key)
+        return true
+    return false
+
+fn incr(s: Store, key: str, by: int) -> int:
+    var cur = 0
+    if s.data.has(key):
+        cur = s.data[key]
+    let next = cur + by
+    s.data[key] = next
+    return next
+
+fn is_int(tok: str) -> bool:
+    if tok.len() == 0:
+        return false
+    var start = 0
+    if tok.chars()[0] == "-":
+        if tok.len() == 1:
+            return false
+        start = 1
+    var i = start
+    while i < tok.len():
+        let c = tok.chars()[i]
+        if not (c >= "0" and c <= "9"):
+            return false
+        i = i + 1
+    return true
+
+fn to_int(tok: str) -> int:
+    var start = 0
+    var neg = false
+    if tok.chars()[0] == "-":
+        neg = true
+        start = 1
+    var n = 0
+    var i = start
+    while i < tok.len():
+        n = n * 10 + digit(tok.chars()[i])
+        i = i + 1
+    if neg:
+        return 0 - n
+    return n
+
+fn digit(c: str) -> int:
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    var i = 0
+    while i < 10:
+        if ds[i] == c:
+            return i
+        i = i + 1
+    return 0
+
+fn exec(s: Store, line: str) -> Result[str, str]:
+    let parts = words(line)
+    if parts.len() == 0:
+        return Err("empty command")
+    let cmd = upper(parts[0])
+    if cmd == "SET":
+        return do_set(s, parts)
+    if cmd == "GET":
+        return do_get(s, parts)
+    if cmd == "DEL":
+        return do_del(s, parts)
+    if cmd == "INCR":
+        return do_incr(s, parts)
+    if cmd == "EXISTS":
+        return do_exists(s, parts)
+    if cmd == "KEYS":
+        return Ok(join_keys(s))
+    if cmd == "COUNT":
+        return Ok(int_str(s.data.len()))
+    return Err("unknown command: ${cmd}")
+
+fn do_set(s: Store, parts: [str]) -> Result[str, str]:
+    if parts.len() != 3:
+        return Err("SET needs key and value")
+    if not is_int(parts[2]):
+        return Err("value must be an integer")
+    set(s, parts[1], to_int(parts[2]))
+    return Ok("OK")
+
+fn do_get(s: Store, parts: [str]) -> Result[str, str]:
+    if parts.len() != 2:
+        return Err("GET needs a key")
+    match get(s, parts[1]):
+        Some(v) => Ok(int_str(v))
+        None => Err("no such key: ${parts[1]}")
+
+fn do_del(s: Store, parts: [str]) -> Result[str, str]:
+    if parts.len() != 2:
+        return Err("DEL needs a key")
+    if delete(s, parts[1]):
+        return Ok("deleted")
+    return Err("no such key: ${parts[1]}")
+
+fn do_incr(s: Store, parts: [str]) -> Result[str, str]:
+    if parts.len() != 3:
+        return Err("INCR needs key and amount")
+    if not is_int(parts[2]):
+        return Err("amount must be an integer")
+    return Ok(int_str(incr(s, parts[1], to_int(parts[2]))))
+
+fn do_exists(s: Store, parts: [str]) -> Result[str, str]:
+    if parts.len() != 2:
+        return Err("EXISTS needs a key")
+    if s.data.has(parts[1]):
+        return Ok("true")
+    return Ok("false")
+
+fn words(line: str) -> [str]:
+    var out = []
+    for w in line.split(" "):
+        if w.len() > 0:
+            out.push(w)
+    return out
+
+fn upper(s: str) -> str:
+    return s.upper()
+
+fn join_keys(s: Store) -> str:
+    var out = ""
+    var first = true
+    for k in s.data.keys():
+        if not first:
+            out += ", "
+        out += k
+        first = false
+    if out == "":
+        return "(none)"
+    return out
+
+fn int_str(n: int) -> str:
+    if n == 0:
+        return "0"
+    var m = n
+    var neg = false
+    if m < 0:
+        neg = true
+        m = 0 - m
+    var s = ""
+    let ds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    while m > 0:
+        s = ds[m % 10] + s
+        m = m / 10
+    if neg:
+        return "-" + s
+    return s
+
+fn run_line(store: Store, line: str):
+    match exec(store, line):
+        Ok(reply) => print("${line}  ->  ${reply}")
+        Err(e) => print("${line}  ->  ERR ${e}")
+
+fn main():
+    let store = new_store()
+    let script = [
+        "SET a 10",
+        "SET b 20",
+        "GET a",
+        "INCR a 5",
+        "GET a",
+        "EXISTS b",
+        "EXISTS z",
+        "DEL b",
+        "GET b",
+        "COUNT",
+        "SET c notanumber",
+        "INCR counter 1",
+        "INCR counter 1",
+        "GET counter",
+        "KEYS",
+        "PING",
+    ]
+    for line in script:
+        run_line(store, line)

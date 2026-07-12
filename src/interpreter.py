@@ -63,7 +63,7 @@ class Interpreter:
         self.impls = {}
         self.functions = {}
         self.depth = 0
-        self.max_depth = 2500
+        self.max_depth = 5000
         self.env_stack = []
         import memory
         self.memory = memory.MemoryManager(self._gc_roots)
