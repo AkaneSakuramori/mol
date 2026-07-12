@@ -149,7 +149,7 @@ def _list_method(obj, name, interp):
     if name == "reverse":
         return Builtin("reverse", lambda a: list(reversed(obj)))
     if name == "sort":
-        return Builtin("sort", lambda a: sorted(obj))
+        return Builtin("sort", lambda a: _sort(obj, a, interp))
     if name == "first":
         return Builtin("first", lambda a: some(obj[0]) if obj else NONE)
     if name == "last":
@@ -165,6 +165,21 @@ def _reduce(obj, args, interp):
     for x in obj:
         acc = interp.call(fn, [acc, x])
     return acc
+
+
+def _sort(obj, args, interp):
+    if not args:
+        return sorted(obj)
+    import functools
+    cmp = args[0]
+
+    def compare(a, b):
+        result = interp.call(cmp, [a, b])
+        if isinstance(result, bool):
+            return -1 if result else 1
+        return -1 if result < 0 else (1 if result > 0 else 0)
+
+    return sorted(obj, key=functools.cmp_to_key(compare))
 
 
 def _each(obj, fn, interp):

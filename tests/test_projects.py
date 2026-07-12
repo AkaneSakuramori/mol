@@ -30,8 +30,21 @@ x * 2  =>  45.0
 100 % 7  =>  2.0
 """
 
+WORDSTATS_EXPECTED = """\
+total words:  24
+unique words: 14
+longest word: amused
+top words:
+  the: 5
+  quick: 3
+  fox: 3
+  dog: 3
+  brown: 1
+"""
+
 PROGRAMS = [
     ("calc/calc.ul", CALC_EXPECTED),
+    ("wordstats/wordstats.ul", WORDSTATS_EXPECTED),
 ]
 
 

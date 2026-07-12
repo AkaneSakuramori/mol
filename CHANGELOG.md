@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased (toward 2.0)
+
+### Added
+- **Reference projects** (`projects/`) — substantial real-world Ulang programs used to
+  validate the language and toolchain end to end: `calc` (an arithmetic expression
+  evaluator — tokenizer, precedence-climbing parser, evaluator) and `wordstats` (text
+  statistics using dictionaries and higher-order list operations). Each is pinned by
+  `tests/test_projects.py`, which checks output, interpreter/VM parity, and self-hosted
+  compilation.
+
+### Improved
+- `list.sort(cmp)` now accepts an optional comparator function (`fn(a, b) -> int`, negative
+  / zero / positive, or a bool), in addition to the existing no-argument natural sort. This
+  is a backward-compatible standard-library completion surfaced by the reference projects;
+  it applies to both the interpreter and the bytecode VM.
+
 ## 1.9.0
 
 The self-hosted compiler is integrated into a single toolchain and its bootstrap is

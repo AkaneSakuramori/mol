@@ -1,0 +1,88 @@
+# wordstats — a text statistics tool written in Ulang.
+#
+# Computes word counts, the most frequent words, and summary statistics over a block of
+# text. It exercises string processing, dictionaries, and the higher-order list operations
+# (map / filter / sort / reduce) that make up idiomatic Ulang.
+
+fn normalize(text: str) -> str:
+    var out = ""
+    for ch in text.chars():
+        if is_word_char(ch):
+            out += lower_char(ch)
+        else:
+            out += " "
+    return out
+
+fn is_word_char(c: str) -> bool:
+    return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9")
+
+fn lower_char(c: str) -> str:
+    if c >= "A" and c <= "Z":
+        let a = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
+        let l = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+        var i = 0
+        while i < 26:
+            if a[i] == c:
+                return l[i]
+            i = i + 1
+    return c
+
+fn words_of(text: str) -> [str]:
+    let cleaned = normalize(text)
+    var result = []
+    for w in cleaned.split(" "):
+        if w.len() > 0:
+            result.push(w)
+    return result
+
+fn count_words(words: [str]) -> dyn:
+    var counts = {}
+    for w in words:
+        if counts.has(w):
+            counts[w] = counts[w] + 1
+        else:
+            counts[w] = 1
+    return counts
+
+type Pair:
+    word: str
+    count: int
+
+fn to_pairs(counts: dyn) -> [Pair]:
+    var pairs = []
+    for w in counts.keys():
+        pairs.push(Pair(w, counts[w]))
+    return pairs
+
+fn sort_by_count(pairs: [Pair]) -> [Pair]:
+    return pairs.sort((a, b) => b.count - a.count)
+
+fn total_words(words: [str]) -> int:
+    return words.len()
+
+fn unique_words(counts: dyn) -> int:
+    return counts.keys().len()
+
+fn longest_word(words: [str]) -> str:
+    return words.reduce((best, w) => pick_longer(best, w), "")
+
+fn pick_longer(a: str, b: str) -> str:
+    if b.len() > a.len():
+        return b
+    return a
+
+fn main():
+    let text = "the quick brown fox jumps over the lazy dog. The dog was not amused, and the fox ran. Quick fox, quick dog, the end."
+    let words = words_of(text)
+    let counts = count_words(words)
+    let ranked = sort_by_count(to_pairs(counts))
+
+    print("total words:  ${total_words(words)}")
+    print("unique words: ${unique_words(counts)}")
+    print("longest word: ${longest_word(words)}")
+    print("top words:")
+    var shown = 0
+    for p in ranked:
+        if shown < 5:
+            print("  ${p.word}: ${p.count}")
+            shown = shown + 1
